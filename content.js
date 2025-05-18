@@ -10,36 +10,57 @@
 
   function extrairLinksMagneticos() {
     const linksInfo = [];
-    const elementos = document.querySelectorAll("a[href]");
+    const isRealDebridTorrentsPage = window.location.href.includes(
+      "https://real-debrid.com/torrents"
+    );
 
-    elementos.forEach((elemento) => {
-      const href = elemento.getAttribute("href");
-      if (href && href.startsWith("magnet:")) {
-        let titulo = "";
-        const dnMatch = href.match(/dn=([^&]+)/);
+    // Caso específico para a página de torrents do Real-Debrid
+    if (isRealDebridTorrentsPage) {
+      const elementos = document.querySelectorAll("textarea[name='links']");
 
-        if (dnMatch && dnMatch[1]) {
-          titulo = decodeURIComponent(dnMatch[1]).replace(/\+/g, " ");
-        } else {
-          titulo = elemento.textContent.trim();
+      elementos.forEach((elemento) => {
+        if (elemento.value && elemento.value.trim()) {
+          const id = elemento.id || "";
+          linksInfo.push({
+            url: elemento.value.trim(),
+            titulo: `Link RD: ${id.replace("links_", "")}`,
+            status: null,
+          });
+        }
+      });
+    } else {
+      // Comportamento original para outros sites
+      const elementos = document.querySelectorAll("a[href]");
 
-          if (titulo.length < 5) {
-            const heading = elemento
-              .closest("div")
-              .querySelector("h1, h2, h3, h4, h5");
-            if (heading) {
-              titulo = heading.textContent.trim();
+      elementos.forEach((elemento) => {
+        const href = elemento.getAttribute("href");
+        if (href && href.startsWith("magnet:")) {
+          let titulo = "";
+          const dnMatch = href.match(/dn=([^&]+)/);
+
+          if (dnMatch && dnMatch[1]) {
+            titulo = decodeURIComponent(dnMatch[1]).replace(/\+/g, " ");
+          } else {
+            titulo = elemento.textContent.trim();
+
+            if (titulo.length < 5) {
+              const heading = elemento
+                .closest("div")
+                .querySelector("h1, h2, h3, h4, h5");
+              if (heading) {
+                titulo = heading.textContent.trim();
+              }
             }
           }
-        }
 
-        linksInfo.push({
-          url: href,
-          titulo: titulo || "Link sem título",
-          status: null,
-        });
-      }
-    });
+          linksInfo.push({
+            url: href,
+            titulo: titulo || "Link sem título",
+            status: null,
+          });
+        }
+      });
+    }
 
     return linksInfo;
   }
@@ -136,7 +157,11 @@
 
     const debridSelectedButton = getElement("debrid-selected-btn");
     if (debridSelectedButton) {
-      debridSelectedButton.addEventListener("click", processarSelecionados);
+      if (window.location.href.includes("https://real-debrid.com/torrents")) {
+        debridSelectedButton.style.display = "none"; // Oculta o botão
+      } else {
+        debridSelectedButton.addEventListener("click", processarSelecionados);
+      }
     }
   }
 
@@ -515,6 +540,9 @@
     const filterInput = getElement("filter-input");
     const listaLinks = getElement("lista-links");
     const header = getElement("header");
+    const isRealDebridTorrentsPage = window.location.href.includes(
+      "https://real-debrid.com/torrents"
+    );
 
     if (!filterInput || !listaLinks || !header) {
       console.error(
@@ -574,24 +602,27 @@
         copyBtn.style.cursor = "pointer";
         copyBtn.addEventListener("click", () => copiarLink(index, copyBtn));
 
-        const debridBtn = document.createElement("button");
-        debridBtn.textContent = "Debrid";
-        debridBtn.style.marginLeft = "10px";
-        debridBtn.style.padding = "2px 5px";
-        debridBtn.style.cursor = "pointer";
-        debridBtn.style.backgroundColor = "#ff9800";
-        debridBtn.style.color = "white";
-        debridBtn.style.border = "none";
-        debridBtn.style.borderRadius = "3px";
-        debridBtn.addEventListener("click", () =>
-          processarLinkDebrid(index, debridBtn)
-        );
-
         mainRow.appendChild(checkbox);
         mainRow.appendChild(titulo);
         mainRow.appendChild(toggleBtn);
         mainRow.appendChild(copyBtn);
-        mainRow.appendChild(debridBtn);
+
+        // Adiciona o botão Debrid somente se não estivermos na página específica
+        if (!isRealDebridTorrentsPage) {
+          const debridBtn = document.createElement("button");
+          debridBtn.textContent = "Debrid";
+          debridBtn.style.marginLeft = "10px";
+          debridBtn.style.padding = "2px 5px";
+          debridBtn.style.cursor = "pointer";
+          debridBtn.style.backgroundColor = "#ff9800";
+          debridBtn.style.color = "white";
+          debridBtn.style.border = "none";
+          debridBtn.style.borderRadius = "3px";
+          debridBtn.addEventListener("click", () =>
+            processarLinkDebrid(index, debridBtn)
+          );
+          mainRow.appendChild(debridBtn);
+        }
 
         item.appendChild(mainRow);
 
@@ -631,7 +662,9 @@
       }
     });
 
-    header.textContent = `${linksVisíveis} de ${linksMagneticos.length} links magnéticos exibidos`;
+    header.textContent = `${linksVisíveis} de ${linksMagneticos.length} links ${
+      isRealDebridTorrentsPage ? "RD" : "magnéticos"
+    } exibidos`;
   }
 
   inicializarExtensao();

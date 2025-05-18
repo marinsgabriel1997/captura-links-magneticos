@@ -8,7 +8,8 @@
   "host_permissions": [
     "*://bludv.xyz/*",
     "*://api.real-debrid.com/*",
-    "*://real-debrid.com/*"
+    "*://real-debrid.com/*",
+    "*://watchsomuch.to/*"
   ],
   "background": {
     "service_worker": "background.js"
