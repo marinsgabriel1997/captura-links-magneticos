@@ -42,6 +42,7 @@
         linksInfo.push({
           url: href,
           titulo: titulo || "Link sem título",
+          status: null,
         });
       }
     });
@@ -165,52 +166,78 @@
   filterInput.style.flex = "1";
   filterInput.style.border = "2px solid #ccc";
 
-  // Status container para mensagens de processamento
-  const statusContainer = document.createElement("div");
-  statusContainer.id = "status-container";
-  statusContainer.style.display = "none";
-  statusContainer.style.marginBottom = "15px";
-  statusContainer.style.padding = "10px";
-  statusContainer.style.backgroundColor = "#f0f0f0";
-  statusContainer.style.border = "1px solid #ccc";
-  statusContainer.style.borderRadius = "3px";
+  // Função para atualizar o status de um item específico
+  function atualizarStatusItem(index, mensagem, tipo) {
+    const item = document.querySelector(`.link-item[data-index="${index}"]`);
+    if (!item) return;
 
-  // Função para mostrar status
-  function mostrarStatus(mensagem, tipo) {
-    statusContainer.innerHTML = mensagem;
-    statusContainer.style.display = "block";
+    // Encontra ou cria o elemento de status
+    let statusElement = item.querySelector(".item-status");
+    if (!statusElement) {
+      statusElement = document.createElement("div");
+      statusElement.className = "item-status";
+      statusElement.style.marginTop = "5px";
+      statusElement.style.padding = "5px";
+      statusElement.style.borderRadius = "3px";
+      statusElement.style.fontSize = "14px";
+      statusElement.style.width = "100%";
+      item.appendChild(statusElement);
+    }
+
+    // Define o conteúdo e estilo
+    statusElement.innerHTML = mensagem;
+    statusElement.style.display = "block";
 
     if (tipo === "success") {
-      statusContainer.style.backgroundColor = "#e8f5e9";
-      statusContainer.style.borderColor = "#4CAF50";
+      statusElement.style.backgroundColor = "#e8f5e9";
+      statusElement.style.borderColor = "#4CAF50";
+      statusElement.style.color = "#2e7d32";
     } else if (tipo === "error") {
-      statusContainer.style.backgroundColor = "#ffebee";
-      statusContainer.style.borderColor = "#f44336";
+      statusElement.style.backgroundColor = "#ffebee";
+      statusElement.style.borderColor = "#f44336";
+      statusElement.style.color = "#c62828";
     } else if (tipo === "info") {
-      statusContainer.style.backgroundColor = "#e3f2fd";
-      statusContainer.style.borderColor = "#2196F3";
+      statusElement.style.backgroundColor = "#e3f2fd";
+      statusElement.style.borderColor = "#2196F3";
+      statusElement.style.color = "#1565c0";
     } else {
-      statusContainer.style.backgroundColor = "#f0f0f0";
-      statusContainer.style.borderColor = "#ccc";
+      statusElement.style.backgroundColor = "#f0f0f0";
+      statusElement.style.borderColor = "#ccc";
+      statusElement.style.color = "#333";
     }
+
+    // Armazena o status no objeto linksMagneticos
+    linksMagneticos[index].status = {
+      mensagem,
+      tipo,
+    };
   }
 
-  // Função para limpar status
-  function limparStatus() {
-    statusContainer.style.display = "none";
-    statusContainer.textContent = "";
+  // Função para limpar o status de um item específico
+  function limparStatusItem(index) {
+    const item = document.querySelector(`.link-item[data-index="${index}"]`);
+    if (!item) return;
+
+    const statusElement = item.querySelector(".item-status");
+    if (statusElement) {
+      statusElement.style.display = "none";
+      statusElement.textContent = "";
+    }
+
+    // Limpa o status no objeto linksMagneticos
+    linksMagneticos[index].status = null;
   }
 
   // Função para processar um link com Real-Debrid
-  function processarLinkDebrid(magnetUrl) {
+  function processarLinkDebrid(magnetUrl, index) {
     const apiKey = apiKeyInput.value.trim();
 
     if (!apiKey) {
-      mostrarStatus("Erro: API Key não definida!", "error");
+      atualizarStatusItem(index, "Erro: API Key não definida!", "error");
       return;
     }
 
-    mostrarStatus("Processando link no Real-Debrid...", "info");
+    atualizarStatusItem(index, "Processando link no Real-Debrid...", "info");
 
     chrome.runtime.sendMessage(
       { action: "processDebrid", magnetUrl, apiKey },
@@ -220,33 +247,28 @@
 
           if (data.links && data.links.length > 0) {
             // Cria uma lista com os links
-            let linksHtml =
-              "<ul style='margin-top: 10px; padding-left: 20px;'>";
+            let linksHtml = "<ul style='margin-top: 5px; padding-left: 20px;'>";
             data.links.forEach((link) => {
-              linksHtml += `<li><a href="${link}" target="_blank">${link}</a></li>`;
+              linksHtml += `<li><a href="${link}" target="_blank" style="color: #2196F3; text-decoration: underline;">${link}</a></li>`;
             });
             linksHtml += "</ul>";
 
-            mostrarStatus(
+            atualizarStatusItem(
+              index,
               `<strong>Sucesso!</strong> Arquivo: ${data.fileName} (${data.fileSize})<br>` +
                 "Links disponíveis:" +
                 linksHtml,
               "success"
             );
-
-            // Permite que os links sejam clicáveis
-            const links = statusContainer.querySelectorAll("a");
-            links.forEach((link) => {
-              link.style.color = "#2196F3";
-              link.style.textDecoration = "underline";
-            });
           } else if (data.status === "magnet_conversion") {
-            mostrarStatus(
+            atualizarStatusItem(
+              index,
               `O magnet está sendo convertido. ID do torrent: ${data.torrentId}. Tente novamente em alguns minutos.`,
               "info"
             );
           } else {
-            mostrarStatus(
+            atualizarStatusItem(
+              index,
               `Link enviado para o Real-Debrid. Status: ${
                 data.status
               }, Progresso: ${Math.round(data.progress * 100)}%`,
@@ -254,7 +276,7 @@
             );
           }
         } else {
-          mostrarStatus(`Erro: ${response.error}`, "error");
+          atualizarStatusItem(index, `Erro: ${response.error}`, "error");
         }
       }
     );
@@ -276,10 +298,17 @@
 
         const item = document.createElement("div");
         item.className = "link-item";
+        item.dataset.index = index;
         item.style.padding = "10px";
         item.style.borderBottom = "1px solid #eee";
         item.style.display = "flex";
-        item.style.alignItems = "center";
+        item.style.flexDirection = "column";
+
+        // Container para a linha principal
+        const mainRow = document.createElement("div");
+        mainRow.style.display = "flex";
+        mainRow.style.alignItems = "center";
+        mainRow.style.width = "100%";
 
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
@@ -350,10 +379,10 @@
 
         debridBtn.addEventListener("click", () => {
           // Limpa status anterior
-          limparStatus();
+          limparStatusItem(index);
 
           // Processa o link
-          processarLinkDebrid(link.url);
+          processarLinkDebrid(link.url, index);
 
           // Efeito visual
           debridBtn.style.backgroundColor = "#e68a00";
@@ -362,11 +391,46 @@
           }, 100);
         });
 
-        item.appendChild(checkbox);
-        item.appendChild(titulo);
-        item.appendChild(toggleBtn);
-        item.appendChild(copyBtn);
-        item.appendChild(debridBtn);
+        mainRow.appendChild(checkbox);
+        mainRow.appendChild(titulo);
+        mainRow.appendChild(toggleBtn);
+        mainRow.appendChild(copyBtn);
+        mainRow.appendChild(debridBtn);
+
+        item.appendChild(mainRow);
+
+        // Se já existe um status para este item, adiciona-o
+        if (link.status) {
+          const statusElement = document.createElement("div");
+          statusElement.className = "item-status";
+          statusElement.style.marginTop = "5px";
+          statusElement.style.padding = "5px";
+          statusElement.style.borderRadius = "3px";
+          statusElement.style.fontSize = "14px";
+          statusElement.style.width = "100%";
+          statusElement.innerHTML = link.status.mensagem;
+
+          // Estilo baseado no tipo
+          if (link.status.tipo === "success") {
+            statusElement.style.backgroundColor = "#e8f5e9";
+            statusElement.style.borderColor = "#4CAF50";
+            statusElement.style.color = "#2e7d32";
+          } else if (link.status.tipo === "error") {
+            statusElement.style.backgroundColor = "#ffebee";
+            statusElement.style.borderColor = "#f44336";
+            statusElement.style.color = "#c62828";
+          } else if (link.status.tipo === "info") {
+            statusElement.style.backgroundColor = "#e3f2fd";
+            statusElement.style.borderColor = "#2196F3";
+            statusElement.style.color = "#1565c0";
+          } else {
+            statusElement.style.backgroundColor = "#f0f0f0";
+            statusElement.style.borderColor = "#ccc";
+            statusElement.style.color = "#333";
+          }
+
+          item.appendChild(statusElement);
+        }
 
         listaLinks.appendChild(item);
       }
@@ -474,7 +538,6 @@
   overlay.appendChild(closeButton);
   overlay.appendChild(header);
   overlay.appendChild(apiKeySection);
-  overlay.appendChild(statusContainer);
   overlay.appendChild(filterContainer);
   overlay.appendChild(selectionContainer);
   overlay.appendChild(listaLinks);
