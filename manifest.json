@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Magnet Link Debrid Extension",
+  "version": "1.0",
+  "description": "Abre um overlay com input de texto e opção de debrid",
+  "action": {},
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": ["*://bludv.xyz/*", "*://api.real-debrid.com/*"],
+  "background": {
+    "service_worker": "background.js"
+  }
+}
