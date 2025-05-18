@@ -5,8 +5,18 @@
   "description": "Abre um overlay com input de texto e opção de debrid",
   "action": {},
   "permissions": ["activeTab", "scripting", "storage"],
-  "host_permissions": ["*://bludv.xyz/*", "*://api.real-debrid.com/*"],
+  "host_permissions": [
+    "*://bludv.xyz/*",
+    "*://api.real-debrid.com/*",
+    "*://real-debrid.com/*"
+  ],
   "background": {
     "service_worker": "background.js"
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["overlay.html", "overlay.css"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }

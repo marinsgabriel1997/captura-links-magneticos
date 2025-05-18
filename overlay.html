@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Overlay de Links Magnéticos</title>
+  </head>
+  <body>
+    <div id="overlay-extension">
+      <button id="close-button">X</button>
+      <div id="header">0 links magnéticos encontrados</div>
+
+      <div id="api-key-section">
+        <label id="api-key-label">Real-Debrid API Key: </label>
+        <input
+          type="password"
+          id="rd-api-key"
+          placeholder="Cole sua API Key do Real-Debrid aqui"
+        />
+        <button id="save-api-key-btn">Salvar</button>
+      </div>
+
+      <div id="filter-container">
+        <label id="filter-label">Filtrar: </label>
+        <input
+          type="text"
+          id="filter-input"
+          placeholder="Digite para filtrar por título..."
+        />
+      </div>
+
+      <div id="selection-container">
+        <button id="select-all-btn">Selecionar Todos</button>
+        <button id="deselect-all-btn">Deselecionar Todos</button>
+      </div>
+
+      <div id="lista-links"></div>
+
+      <div class="buttons">
+        <button id="copy-selected-btn">Copiar Links Selecionados</button>
+        <button id="debrid-selected-btn">Debrid Links Selecionados</button>
+      </div>
+    </div>
+  </body>
+</html>

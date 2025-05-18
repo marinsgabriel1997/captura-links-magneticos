@@ -1,33 +1,28 @@
 (function () {
-  // Verifica se o overlay já existe
-  if (document.getElementById("overlay-extension")) {
-    document.getElementById("overlay-extension").remove();
+  const existingContainer = document.getElementById("extension-container");
+  if (existingContainer) {
+    existingContainer.remove();
     return;
   }
 
-  // Função para extrair links magnéticos e seus títulos
+  let shadowRoot = null;
+  const linksMagneticos = extrairLinksMagneticos();
+
   function extrairLinksMagneticos() {
     const linksInfo = [];
-
-    // Procura por todos os links na página
     const elementos = document.querySelectorAll("a[href]");
 
-    // Filtra apenas os links magnéticos e extrai informações relevantes
     elementos.forEach((elemento) => {
       const href = elemento.getAttribute("href");
       if (href && href.startsWith("magnet:")) {
-        // Tenta obter o título do torrent a partir da URL ou do texto do elemento
         let titulo = "";
-
-        // Extrai o nome do parâmetro dn= da URL magnet
         const dnMatch = href.match(/dn=([^&]+)/);
+
         if (dnMatch && dnMatch[1]) {
           titulo = decodeURIComponent(dnMatch[1]).replace(/\+/g, " ");
         } else {
-          // Se não encontrar no link, usa o texto do elemento ou um elemento próximo
           titulo = elemento.textContent.trim();
 
-          // Se o texto do elemento for muito curto, procura por um heading próximo
           if (titulo.length < 5) {
             const heading = elemento
               .closest("div")
@@ -38,7 +33,6 @@
           }
         }
 
-        // Adiciona à lista de links
         linksInfo.push({
           url: href,
           titulo: titulo || "Link sem título",
@@ -50,203 +44,171 @@
     return linksInfo;
   }
 
-  // Extrai os links magnéticos
-  const linksMagneticos = extrairLinksMagneticos();
+  function getElement(id) {
+    return shadowRoot.getElementById(id);
+  }
 
-  // Cria o overlay
-  const overlay = document.createElement("div");
-  overlay.id = "overlay-extension";
-  overlay.style.position = "fixed";
-  overlay.style.top = "5%";
-  overlay.style.left = "5%";
-  overlay.style.width = "90%";
-  overlay.style.height = "90%";
-  overlay.style.backgroundColor = "white";
-  overlay.style.zIndex = "9999";
-  overlay.style.border = "1px solid black";
-  overlay.style.padding = "20px";
-  overlay.style.boxSizing = "border-box";
-  overlay.style.display = "flex";
-  overlay.style.flexDirection = "column";
-  overlay.style.boxShadow = "0 0 10px rgba(0,0,0,0.5)";
-  overlay.style.borderRadius = "5px";
+  function inicializarExtensao() {
+    const container = document.createElement("div");
+    container.id = "extension-container";
+    container.style.position = "fixed";
+    container.style.top = "0";
+    container.style.left = "0";
+    container.style.width = "100%";
+    container.style.height = "100%";
+    container.style.zIndex = "2147483647";
+    container.style.pointerEvents = "none";
 
-  // Cria o botão para fechar
-  const closeButton = document.createElement("button");
-  closeButton.textContent = "X";
-  closeButton.style.position = "absolute";
-  closeButton.style.top = "10px";
-  closeButton.style.right = "10px";
-  closeButton.style.cursor = "pointer";
-  closeButton.style.padding = "5px 10px";
-  closeButton.style.backgroundColor = "#f44336";
-  closeButton.style.color = "white";
-  closeButton.style.border = "none";
-  closeButton.style.borderRadius = "3px";
-  closeButton.addEventListener("click", () => {
-    overlay.remove();
-  });
+    shadowRoot = container.attachShadow({ mode: "closed" });
 
-  // Cria o cabeçalho
-  const header = document.createElement("div");
-  header.textContent = `${linksMagneticos.length} links magnéticos encontrados`;
-  header.style.fontSize = "18px";
-  header.style.fontWeight = "bold";
-  header.style.marginBottom = "15px";
+    Promise.all([
+      fetch(chrome.runtime.getURL("overlay.html")).then((r) => r.text()),
+      fetch(chrome.runtime.getURL("overlay.css")).then((r) => r.text()),
+    ])
+      .then(([html, css]) => {
+        const style = document.createElement("style");
+        style.textContent = css;
+        shadowRoot.appendChild(style);
 
-  // Seção para API Key
-  const apiKeySection = document.createElement("div");
-  apiKeySection.style.marginBottom = "15px";
-  apiKeySection.style.display = "flex";
-  apiKeySection.style.alignItems = "center";
+        const overlayDiv = document.createElement("div");
+        overlayDiv.innerHTML = html;
 
-  const apiKeyLabel = document.createElement("label");
-  apiKeyLabel.textContent = "Real-Debrid API Key: ";
-  apiKeyLabel.style.marginRight = "10px";
-
-  const apiKeyInput = document.createElement("input");
-  apiKeyInput.type = "text";
-  apiKeyInput.id = "rd-api-key";
-  apiKeyInput.placeholder = "Cole sua API Key do Real-Debrid aqui";
-  apiKeyInput.style.padding = "5px";
-  apiKeyInput.style.flex = "1";
-  apiKeyInput.style.border = "2px solid #ccc";
-
-  const saveApiKeyBtn = document.createElement("button");
-  saveApiKeyBtn.textContent = "Salvar";
-  saveApiKeyBtn.style.marginLeft = "10px";
-  saveApiKeyBtn.style.padding = "5px 10px";
-  saveApiKeyBtn.style.cursor = "pointer";
-  saveApiKeyBtn.style.backgroundColor = "#2196F3";
-  saveApiKeyBtn.style.color = "white";
-  saveApiKeyBtn.style.border = "none";
-  saveApiKeyBtn.style.borderRadius = "3px";
-
-  saveApiKeyBtn.addEventListener("click", () => {
-    const apiKey = apiKeyInput.value.trim();
-    if (apiKey) {
-      chrome.runtime.sendMessage(
-        { action: "saveApiKey", apiKey: apiKey },
-        (response) => {
-          if (response.success) {
-            // Efeito visual de sucesso
-            saveApiKeyBtn.textContent = "Salvo!";
-            saveApiKeyBtn.style.backgroundColor = "#4CAF50";
-            setTimeout(() => {
-              saveApiKeyBtn.textContent = "Salvar";
-              saveApiKeyBtn.style.backgroundColor = "#2196F3";
-            }, 1500);
-          }
+        while (overlayDiv.firstChild) {
+          shadowRoot.appendChild(overlayDiv.firstChild);
         }
-      );
-    }
-  });
 
-  // Carrega a API key se já existir
-  chrome.runtime.sendMessage({ action: "getApiKey" }, (response) => {
-    if (response.apiKey) {
-      apiKeyInput.value = response.apiKey;
-    }
-  });
+        document.body.appendChild(container);
 
-  // Cria o container de filtro
-  const filterContainer = document.createElement("div");
-  filterContainer.style.marginBottom = "15px";
-  filterContainer.style.display = "flex";
-  filterContainer.style.alignItems = "center";
+        const overlayElement = getElement("overlay-extension");
+        if (overlayElement) {
+          overlayElement.style.pointerEvents = "auto";
+        }
 
-  const filterLabel = document.createElement("label");
-  filterLabel.textContent = "Filtrar: ";
-  filterLabel.style.marginRight = "10px";
+        const header = getElement("header");
+        if (header) {
+          header.textContent = `${linksMagneticos.length} links magnéticos encontrados`;
+        }
 
-  const filterInput = document.createElement("input");
-  filterInput.type = "text";
-  filterInput.placeholder = "Digite para filtrar por título...";
-  filterInput.style.padding = "5px";
-  filterInput.style.flex = "1";
-  filterInput.style.border = "2px solid #ccc";
-
-  // Função para atualizar o status de um item específico
-  function atualizarStatusItem(index, mensagem, tipo) {
-    const item = document.querySelector(`.link-item[data-index="${index}"]`);
-    if (!item) return;
-
-    // Encontra ou cria o elemento de status
-    let statusElement = item.querySelector(".item-status");
-    if (!statusElement) {
-      statusElement = document.createElement("div");
-      statusElement.className = "item-status";
-      statusElement.style.marginTop = "5px";
-      statusElement.style.padding = "5px";
-      statusElement.style.borderRadius = "3px";
-      statusElement.style.fontSize = "14px";
-      statusElement.style.width = "100%";
-      item.appendChild(statusElement);
-    }
-
-    // Define o conteúdo e estilo
-    statusElement.innerHTML = mensagem;
-    statusElement.style.display = "block";
-
-    if (tipo === "success") {
-      statusElement.style.backgroundColor = "#e8f5e9";
-      statusElement.style.borderColor = "#4CAF50";
-      statusElement.style.color = "#2e7d32";
-    } else if (tipo === "error") {
-      statusElement.style.backgroundColor = "#ffebee";
-      statusElement.style.borderColor = "#f44336";
-      statusElement.style.color = "#c62828";
-    } else if (tipo === "info") {
-      statusElement.style.backgroundColor = "#e3f2fd";
-      statusElement.style.borderColor = "#2196F3";
-      statusElement.style.color = "#1565c0";
-    } else {
-      statusElement.style.backgroundColor = "#f0f0f0";
-      statusElement.style.borderColor = "#ccc";
-      statusElement.style.color = "#333";
-    }
-
-    // Armazena o status no objeto linksMagneticos
-    linksMagneticos[index].status = {
-      mensagem,
-      tipo,
-    };
+        carregarApiKey();
+        inicializarEventListeners();
+        atualizarLista();
+      })
+      .catch((error) => {
+        console.error("Erro ao carregar recursos:", error);
+      });
   }
 
-  // Função para limpar o status de um item específico
-  function limparStatusItem(index) {
-    const item = document.querySelector(`.link-item[data-index="${index}"]`);
-    if (!item) return;
-
-    const statusElement = item.querySelector(".item-status");
-    if (statusElement) {
-      statusElement.style.display = "none";
-      statusElement.textContent = "";
+  function inicializarEventListeners() {
+    const closeButton = getElement("close-button");
+    if (closeButton) {
+      closeButton.addEventListener("click", () => {
+        const container = document.getElementById("extension-container");
+        if (container) {
+          container.remove();
+        }
+      });
     }
 
-    // Limpa o status no objeto linksMagneticos
-    linksMagneticos[index].status = null;
+    const saveApiButton = getElement("save-api-key-btn");
+    if (saveApiButton) {
+      saveApiButton.addEventListener("click", salvarApiKey);
+    }
+
+    const filterInput = getElement("filter-input");
+    if (filterInput) {
+      filterInput.addEventListener("input", atualizarLista);
+    }
+
+    const selectAllButton = getElement("select-all-btn");
+    if (selectAllButton) {
+      selectAllButton.addEventListener("click", selecionarTodos);
+    }
+
+    const deselectAllButton = getElement("deselect-all-btn");
+    if (deselectAllButton) {
+      deselectAllButton.addEventListener("click", deselecionarTodos);
+    }
+
+    const copySelectedButton = getElement("copy-selected-btn");
+    if (copySelectedButton) {
+      copySelectedButton.addEventListener("click", copiarSelecionados);
+    }
+
+    const debridSelectedButton = getElement("debrid-selected-btn");
+    if (debridSelectedButton) {
+      debridSelectedButton.addEventListener("click", processarSelecionados);
+    }
   }
 
-  // Função para processar um link com Real-Debrid
-  function processarLinkDebrid(magnetUrl, index) {
-    const apiKey = apiKeyInput.value.trim();
-
-    if (!apiKey) {
-      atualizarStatusItem(index, "Erro: API Key não definida!", "error");
+  function processarSelecionados() {
+    const apiKeyInput = getElement("rd-api-key");
+    if (!apiKeyInput) {
+      console.error("Campo de API Key não encontrado");
       return;
     }
 
-    atualizarStatusItem(index, "Processando link no Real-Debrid...", "info");
+    const apiKey = apiKeyInput.value.trim();
+
+    if (!apiKey) {
+      alert(
+        "API Key não definida! Por favor, insira sua API Key do Real-Debrid."
+      );
+      return;
+    }
+
+    const checkboxes = Array.from(
+      shadowRoot.querySelectorAll(".link-item input[type=checkbox]:checked")
+    );
+
+    if (checkboxes.length === 0) {
+      alert("Nenhum link selecionado!");
+      return;
+    }
+
+    const debridSelectedBtn = getElement("debrid-selected-btn");
+    if (debridSelectedBtn) {
+      debridSelectedBtn.textContent = "Processando...";
+      debridSelectedBtn.disabled = true;
+      debridSelectedBtn.style.backgroundColor = "#e68a00";
+    }
+
+    processarFilaSequencial(checkboxes, 0, apiKey, debridSelectedBtn);
+  }
+
+  function processarFilaSequencial(
+    checkboxes,
+    indiceAtual,
+    apiKey,
+    debridSelectedBtn
+  ) {
+    if (indiceAtual >= checkboxes.length) {
+      if (debridSelectedBtn) {
+        debridSelectedBtn.textContent = "Debrid Selecionados";
+        debridSelectedBtn.disabled = false;
+        debridSelectedBtn.style.backgroundColor = "#ff9800";
+      }
+      return;
+    }
+
+    const index = parseInt(checkboxes[indiceAtual].value);
+
+    atualizarStatusItem(
+      index,
+      `Em processamento (${indiceAtual + 1}/${checkboxes.length})...`,
+      "info"
+    );
 
     chrome.runtime.sendMessage(
-      { action: "processDebrid", magnetUrl, apiKey },
+      {
+        action: "processDebrid",
+        magnetUrl: linksMagneticos[index].url,
+        apiKey,
+      },
       (response) => {
-        if (response.success) {
+        if (response && response.success) {
           const data = response.data;
 
           if (data.links && data.links.length > 0) {
-            // Cria uma lista com os links
             let linksHtml = "<ul style='margin-top: 5px; padding-left: 20px;'>";
             data.links.forEach((link) => {
               linksHtml += `<li><a href="${link}" target="_blank" style="color: #2196F3; text-decoration: underline;">${link}</a></li>`;
@@ -255,9 +217,7 @@
 
             atualizarStatusItem(
               index,
-              `<strong>Sucesso!</strong> Arquivo: ${data.fileName} (${data.fileSize})<br>` +
-                "Links disponíveis:" +
-                linksHtml,
+              `<strong>Sucesso!</strong> Arquivo: ${data.fileName} (${data.fileSize})<br>Links disponíveis:${linksHtml}`,
               "success"
             );
           } else if (data.status === "magnet_conversion") {
@@ -276,20 +236,295 @@
             );
           }
         } else {
-          atualizarStatusItem(index, `Erro: ${response.error}`, "error");
+          const errorMsg =
+            response && response.error
+              ? response.error
+              : "Erro desconhecido na comunicação com o servidor";
+          atualizarStatusItem(index, `Erro: ${errorMsg}`, "error");
         }
+
+        setTimeout(() => {
+          processarFilaSequencial(
+            checkboxes,
+            indiceAtual + 1,
+            apiKey,
+            debridSelectedBtn
+          );
+        }, 1000);
       }
     );
   }
 
-  // Função para atualizar a lista baseada no filtro
+  function salvarApiKey() {
+    const saveBtn = getElement("save-api-key-btn");
+    const apiKeyInput = getElement("rd-api-key");
+
+    if (!saveBtn || !apiKeyInput) {
+      console.error(
+        "Elementos necessários não encontrados para salvar API Key"
+      );
+      return;
+    }
+
+    const apiKey = apiKeyInput.value.trim();
+
+    if (apiKey) {
+      chrome.runtime.sendMessage(
+        { action: "saveApiKey", apiKey },
+        (response) => {
+          if (response && response.success) {
+            saveBtn.textContent = "Salvo!";
+            saveBtn.style.backgroundColor = "#4CAF50";
+            setTimeout(() => {
+              saveBtn.textContent = "Salvar";
+              saveBtn.style.backgroundColor = "#2196F3";
+            }, 1500);
+          }
+        }
+      );
+    }
+  }
+
+  function carregarApiKey() {
+    const apiKeyInput = getElement("rd-api-key");
+    if (!apiKeyInput) return;
+
+    chrome.runtime.sendMessage({ action: "getApiKey" }, (response) => {
+      if (response && response.apiKey) {
+        apiKeyInput.value = response.apiKey;
+      }
+    });
+  }
+
+  function selecionarTodos() {
+    shadowRoot
+      .querySelectorAll(".link-item input[type=checkbox]")
+      .forEach((cb) => {
+        cb.checked = true;
+      });
+
+    const selectAllBtn = getElement("select-all-btn");
+    if (selectAllBtn) {
+      selectAllBtn.style.backgroundColor = "#ddd";
+      setTimeout(() => {
+        selectAllBtn.style.backgroundColor = "";
+      }, 100);
+    }
+  }
+
+  function deselecionarTodos() {
+    shadowRoot
+      .querySelectorAll(".link-item input[type=checkbox]")
+      .forEach((cb) => {
+        cb.checked = false;
+      });
+
+    const deselectAllBtn = getElement("deselect-all-btn");
+    if (deselectAllBtn) {
+      deselectAllBtn.style.backgroundColor = "#ddd";
+      setTimeout(() => {
+        deselectAllBtn.style.backgroundColor = "";
+      }, 100);
+    }
+  }
+
+  function copiarSelecionados() {
+    const copyBtn = getElement("copy-selected-btn");
+    if (!copyBtn) {
+      console.error("Botão 'Copiar Selecionados' não encontrado");
+      return;
+    }
+
+    const selecionados = [];
+
+    shadowRoot
+      .querySelectorAll(".link-item input[type=checkbox]:checked")
+      .forEach((cb) => {
+        selecionados.push(linksMagneticos[parseInt(cb.value)].url);
+      });
+
+    if (selecionados.length > 0) {
+      navigator.clipboard.writeText(selecionados.join("\n"));
+      copyBtn.style.backgroundColor = "#3e8e41";
+      setTimeout(() => {
+        copyBtn.style.backgroundColor = "#4CAF50";
+      }, 100);
+    } else {
+      copyBtn.style.backgroundColor = "#ff6666";
+      setTimeout(() => {
+        copyBtn.style.backgroundColor = "#4CAF50";
+      }, 100);
+    }
+  }
+
+  function alternarExibicao(index, toggleBtn, titulo) {
+    const item = toggleBtn.closest(".link-item");
+
+    if (item.dataset.mostraLink === "false") {
+      titulo.textContent = linksMagneticos[index].url;
+      toggleBtn.textContent = "Mostrar Título";
+      item.dataset.mostraLink = "true";
+    } else {
+      titulo.textContent = linksMagneticos[index].titulo;
+      toggleBtn.textContent = "Mostrar Link";
+      item.dataset.mostraLink = "false";
+    }
+
+    toggleBtn.style.backgroundColor = "#ddd";
+    setTimeout(() => {
+      toggleBtn.style.backgroundColor = "";
+    }, 100);
+  }
+
+  function copiarLink(index, copyBtn) {
+    navigator.clipboard.writeText(linksMagneticos[index].url);
+    copyBtn.style.backgroundColor = "#ddd";
+    setTimeout(() => {
+      copyBtn.style.backgroundColor = "";
+    }, 100);
+  }
+
+  function processarLinkDebrid(index, debridBtn) {
+    const apiKeyInput = getElement("rd-api-key");
+    if (!apiKeyInput) {
+      console.error("Campo de API Key não encontrado");
+      return;
+    }
+
+    const apiKey = apiKeyInput.value.trim();
+
+    if (!apiKey) {
+      atualizarStatusItem(index, "Erro: API Key não definida!", "error");
+      return;
+    }
+
+    limparStatusItem(index);
+    atualizarStatusItem(index, "Processando link no Real-Debrid...", "info");
+
+    chrome.runtime.sendMessage(
+      {
+        action: "processDebrid",
+        magnetUrl: linksMagneticos[index].url,
+        apiKey,
+      },
+      (response) => {
+        if (response && response.success) {
+          const data = response.data;
+
+          if (data.links && data.links.length > 0) {
+            let linksHtml = "<ul style='margin-top: 5px; padding-left: 20px;'>";
+            data.links.forEach((link) => {
+              linksHtml += `<li><a href="${link}" target="_blank" style="color: #2196F3; text-decoration: underline;">${link}</a></li>`;
+            });
+            linksHtml += "</ul>";
+
+            atualizarStatusItem(
+              index,
+              `<strong>Sucesso!</strong> Arquivo: ${data.fileName} (${data.fileSize})<br>Links disponíveis:${linksHtml}`,
+              "success"
+            );
+          } else if (data.status === "magnet_conversion") {
+            atualizarStatusItem(
+              index,
+              `O magnet está sendo convertido. ID do torrent: ${data.torrentId}. Tente novamente em alguns minutos.`,
+              "info"
+            );
+          } else {
+            atualizarStatusItem(
+              index,
+              `Link enviado para o Real-Debrid. Status: ${
+                data.status
+              }, Progresso: ${Math.round(data.progress * 100)}%`,
+              "info"
+            );
+          }
+        } else {
+          const errorMsg =
+            response && response.error
+              ? response.error
+              : "Erro desconhecido na comunicação com o servidor";
+          atualizarStatusItem(index, `Erro: ${errorMsg}`, "error");
+        }
+      }
+    );
+
+    if (debridBtn) {
+      debridBtn.style.backgroundColor = "#e68a00";
+      setTimeout(() => {
+        debridBtn.style.backgroundColor = "#ff9800";
+      }, 100);
+    }
+  }
+
+  function atualizarStatusItem(index, mensagem, tipo) {
+    const item = shadowRoot.querySelector(`.link-item[data-index="${index}"]`);
+    if (!item) return;
+
+    let statusElement = item.querySelector(".item-status");
+    if (!statusElement) {
+      statusElement = document.createElement("div");
+      statusElement.className = "item-status";
+      statusElement.style.marginTop = "5px";
+      statusElement.style.padding = "5px";
+      statusElement.style.borderRadius = "3px";
+      statusElement.style.fontSize = "14px";
+      statusElement.style.width = "100%";
+      item.appendChild(statusElement);
+    }
+
+    statusElement.innerHTML = mensagem;
+    statusElement.style.display = "block";
+    if (tipo === "success") {
+      statusElement.style.backgroundColor = "#e8f5e9";
+      statusElement.style.borderColor = "#4CAF50";
+      statusElement.style.color = "#2e7d32";
+    } else if (tipo === "error") {
+      statusElement.style.backgroundColor = "#ffebee";
+      statusElement.style.borderColor = "#f44336";
+      statusElement.style.color = "#c62828";
+    } else if (tipo === "info") {
+      statusElement.style.backgroundColor = "#e3f2fd";
+      statusElement.style.borderColor = "#2196F3";
+      statusElement.style.color = "#1565c0";
+    } else {
+      statusElement.style.backgroundColor = "#f0f0f0";
+      statusElement.style.borderColor = "#ccc";
+      statusElement.style.color = "#333";
+    }
+
+    linksMagneticos[index].status = {
+      mensagem,
+      tipo,
+    };
+  }
+
+  function limparStatusItem(index) {
+    const item = shadowRoot.querySelector(`.link-item[data-index="${index}"]`);
+    if (!item) return;
+
+    const statusElement = item.querySelector(".item-status");
+    if (statusElement) {
+      statusElement.style.display = "none";
+      statusElement.textContent = "";
+    }
+
+    linksMagneticos[index].status = null;
+  }
+
   function atualizarLista() {
+    const filterInput = getElement("filter-input");
+    const listaLinks = getElement("lista-links");
+    const header = getElement("header");
+
+    if (!filterInput || !listaLinks || !header) {
+      console.error(
+        "Elementos necessários não encontrados para atualizar a lista"
+      );
+      return;
+    }
+
     const filtro = filterInput.value.toLowerCase();
-
-    // Limpa a lista
     listaLinks.innerHTML = "";
-
-    // Filtra e adiciona os items
     let linksVisíveis = 0;
 
     linksMagneticos.forEach((link, index) => {
@@ -299,12 +534,12 @@
         const item = document.createElement("div");
         item.className = "link-item";
         item.dataset.index = index;
+        item.dataset.mostraLink = "false";
         item.style.padding = "10px";
         item.style.borderBottom = "1px solid #eee";
         item.style.display = "flex";
         item.style.flexDirection = "column";
 
-        // Container para a linha principal
         const mainRow = document.createElement("div");
         mainRow.style.display = "flex";
         mainRow.style.alignItems = "center";
@@ -323,50 +558,22 @@
         titulo.style.textOverflow = "ellipsis";
         titulo.style.whiteSpace = "nowrap";
 
-        // Botão para alternar entre título e link
         const toggleBtn = document.createElement("button");
         toggleBtn.textContent = "Mostrar Link";
         toggleBtn.style.marginLeft = "10px";
         toggleBtn.style.padding = "2px 5px";
         toggleBtn.style.cursor = "pointer";
-
-        // Para rastrear o estado de exibição (título ou link)
-        item.dataset.mostraLink = "false";
-
-        toggleBtn.addEventListener("click", () => {
-          if (item.dataset.mostraLink === "false") {
-            // Mostrar o link
-            titulo.textContent = link.url;
-            toggleBtn.textContent = "Mostrar Título";
-            item.dataset.mostraLink = "true";
-          } else {
-            // Mostrar o título
-            titulo.textContent = link.titulo;
-            toggleBtn.textContent = "Mostrar Link";
-            item.dataset.mostraLink = "false";
-          }
-          // Efeito visual simples ao clicar
-          toggleBtn.style.backgroundColor = "#ddd";
-          setTimeout(() => {
-            toggleBtn.style.backgroundColor = "";
-          }, 100);
-        });
+        toggleBtn.addEventListener("click", () =>
+          alternarExibicao(index, toggleBtn, titulo)
+        );
 
         const copyBtn = document.createElement("button");
         copyBtn.textContent = "Copiar";
         copyBtn.style.marginLeft = "10px";
         copyBtn.style.padding = "2px 5px";
         copyBtn.style.cursor = "pointer";
-        copyBtn.addEventListener("click", () => {
-          navigator.clipboard.writeText(link.url);
-          // Apenas efeito visual de clique
-          copyBtn.style.backgroundColor = "#ddd";
-          setTimeout(() => {
-            copyBtn.style.backgroundColor = "";
-          }, 100);
-        });
+        copyBtn.addEventListener("click", () => copiarLink(index, copyBtn));
 
-        // Novo botão Debrid
         const debridBtn = document.createElement("button");
         debridBtn.textContent = "Debrid";
         debridBtn.style.marginLeft = "10px";
@@ -376,20 +583,9 @@
         debridBtn.style.color = "white";
         debridBtn.style.border = "none";
         debridBtn.style.borderRadius = "3px";
-
-        debridBtn.addEventListener("click", () => {
-          // Limpa status anterior
-          limparStatusItem(index);
-
-          // Processa o link
-          processarLinkDebrid(link.url, index);
-
-          // Efeito visual
-          debridBtn.style.backgroundColor = "#e68a00";
-          setTimeout(() => {
-            debridBtn.style.backgroundColor = "#ff9800";
-          }, 100);
-        });
+        debridBtn.addEventListener("click", () =>
+          processarLinkDebrid(index, debridBtn)
+        );
 
         mainRow.appendChild(checkbox);
         mainRow.appendChild(titulo);
@@ -399,7 +595,6 @@
 
         item.appendChild(mainRow);
 
-        // Se já existe um status para este item, adiciona-o
         if (link.status) {
           const statusElement = document.createElement("div");
           statusElement.className = "item-status";
@@ -408,9 +603,9 @@
           statusElement.style.borderRadius = "3px";
           statusElement.style.fontSize = "14px";
           statusElement.style.width = "100%";
+          statusElement.style.display = "block";
           statusElement.innerHTML = link.status.mensagem;
 
-          // Estilo baseado no tipo
           if (link.status.tipo === "success") {
             statusElement.style.backgroundColor = "#e8f5e9";
             statusElement.style.borderColor = "#4CAF50";
@@ -436,116 +631,8 @@
       }
     });
 
-    // Atualiza o contador
     header.textContent = `${linksVisíveis} de ${linksMagneticos.length} links magnéticos exibidos`;
   }
 
-  filterInput.addEventListener("input", atualizarLista);
-
-  // Botões de seleção
-  const selectionContainer = document.createElement("div");
-  selectionContainer.style.display = "flex";
-  selectionContainer.style.marginTop = "10px";
-  selectionContainer.style.marginBottom = "10px";
-
-  const selectAllBtn = document.createElement("button");
-  selectAllBtn.textContent = "Selecionar Todos";
-  selectAllBtn.style.marginRight = "10px";
-  selectAllBtn.style.padding = "5px 10px";
-  selectAllBtn.addEventListener("click", () => {
-    document
-      .querySelectorAll(".link-item input[type=checkbox]")
-      .forEach((cb) => {
-        cb.checked = true;
-      });
-    // Efeito visual
-    selectAllBtn.style.backgroundColor = "#ddd";
-    setTimeout(() => {
-      selectAllBtn.style.backgroundColor = "";
-    }, 100);
-  });
-
-  const deselectAllBtn = document.createElement("button");
-  deselectAllBtn.textContent = "Deselecionar Todos";
-  deselectAllBtn.style.padding = "5px 10px";
-  deselectAllBtn.style.cursor = "pointer";
-  deselectAllBtn.addEventListener("click", () => {
-    document
-      .querySelectorAll(".link-item input[type=checkbox]")
-      .forEach((cb) => {
-        cb.checked = false;
-      });
-    // Efeito visual
-    deselectAllBtn.style.backgroundColor = "#ddd";
-    setTimeout(() => {
-      deselectAllBtn.style.backgroundColor = "";
-    }, 100);
-  });
-
-  selectionContainer.appendChild(selectAllBtn);
-  selectionContainer.appendChild(deselectAllBtn);
-
-  // Container da lista
-  const listaLinks = document.createElement("div");
-  listaLinks.style.flex = "1";
-  listaLinks.style.overflowY = "auto";
-  listaLinks.style.border = "1px solid #ccc";
-  listaLinks.style.marginBottom = "15px";
-  listaLinks.style.backgroundColor = "#fafafa";
-
-  // Botão de copiar selecionados
-  const copySelectedBtn = document.createElement("button");
-  copySelectedBtn.textContent = "Copiar Links Selecionados";
-  copySelectedBtn.style.padding = "8px 15px";
-  copySelectedBtn.style.backgroundColor = "#4CAF50";
-  copySelectedBtn.style.color = "white";
-  copySelectedBtn.style.border = "none";
-  copySelectedBtn.style.borderRadius = "4px";
-  copySelectedBtn.style.cursor = "pointer";
-
-  copySelectedBtn.addEventListener("click", () => {
-    const selecionados = [];
-    document
-      .querySelectorAll(".link-item input[type=checkbox]:checked")
-      .forEach((cb) => {
-        selecionados.push(linksMagneticos[parseInt(cb.value)].url);
-      });
-
-    if (selecionados.length > 0) {
-      navigator.clipboard.writeText(selecionados.join("\n"));
-      // Apenas efeito visual
-      copySelectedBtn.style.backgroundColor = "#3e8e41";
-      setTimeout(() => {
-        copySelectedBtn.style.backgroundColor = "#4CAF50";
-      }, 100);
-    } else {
-      // Apenas efeito visual
-      copySelectedBtn.style.backgroundColor = "#ff6666";
-      setTimeout(() => {
-        copySelectedBtn.style.backgroundColor = "#4CAF50";
-      }, 100);
-    }
-  });
-
-  // Adiciona os elementos ao overlay
-  apiKeySection.appendChild(apiKeyLabel);
-  apiKeySection.appendChild(apiKeyInput);
-  apiKeySection.appendChild(saveApiKeyBtn);
-
-  filterContainer.appendChild(filterLabel);
-  filterContainer.appendChild(filterInput);
-
-  overlay.appendChild(closeButton);
-  overlay.appendChild(header);
-  overlay.appendChild(apiKeySection);
-  overlay.appendChild(filterContainer);
-  overlay.appendChild(selectionContainer);
-  overlay.appendChild(listaLinks);
-  overlay.appendChild(copySelectedBtn);
-
-  // Adiciona o overlay ao corpo da página
-  document.body.appendChild(overlay);
-
-  // Inicializa a lista
-  atualizarLista();
+  inicializarExtensao();
 })();
