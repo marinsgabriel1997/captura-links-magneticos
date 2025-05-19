@@ -456,12 +456,21 @@
 
     if (!filterInput || !listaLinks || !header) return;
 
-    const filtro = filterInput.value.toLowerCase();
+    const filtroTexto = filterInput.value.toLowerCase();
+    const filtrosPalavras = filtroTexto
+      .split(/\s+/)
+      .filter((palavra) => palavra.length > 0);
     listaLinks.innerHTML = "";
     let linksVisiveis = 0;
 
     linksMagneticos.forEach((link, index) => {
-      if (!link.titulo.toLowerCase().includes(filtro)) return;
+      const tituloLowerCase = link.titulo.toLowerCase();
+      // Verifica se TODAS as palavras do filtro estão presentes no título
+      const correspondeAoFiltro =
+        filtrosPalavras.length === 0 ||
+        filtrosPalavras.every((palavra) => tituloLowerCase.includes(palavra));
+
+      if (!correspondeAoFiltro) return;
 
       linksVisiveis++;
 
