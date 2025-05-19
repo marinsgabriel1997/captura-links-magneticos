@@ -29,17 +29,25 @@
     );
 
     if (checkboxInputs.length > 0) {
+      const sizeElements = document.querySelectorAll(
+        ".SearchIndexRow-size-V9kGS"
+      );
+
       return [...checkboxInputs]
         .filter((el) => el.getAttribute("name")?.startsWith("magnet:"))
-        .map((el) => {
+        .map((el, index) => {
           const href = el.getAttribute("name");
           let titulo = "";
           const dnMatch = href.match(/dn=([^&]+)/);
 
+          const tamanho =
+            index < sizeElements.length
+              ? sizeElements[index].textContent.trim()
+              : "Desconhecido";
+
           if (dnMatch?.[1]) {
             titulo = decodeURIComponent(dnMatch[1]).replace(/\+/g, " ");
           } else {
-            // Tentar encontrar título em elementos próximos
             const parentElement = el.closest("div");
             const possibleTitle = parentElement?.querySelector(
               "h1, h2, h3, h4, h5, .title, .name"
@@ -50,6 +58,7 @@
           return {
             url: href,
             titulo: titulo || "Link sem título",
+            tamanho: tamanho,
             status: null,
           };
         });
@@ -126,6 +135,40 @@
       const header = getElement("header");
       if (header)
         header.textContent = `${linksMagneticos.length} links magnéticos encontrados`;
+
+      function toggleTab(tabId) {
+        // Use querySelector com # para selecionar por ID em vez de getElementById
+        const tabContents = shadowRoot.querySelectorAll(".tab-content");
+        tabContents.forEach(function (tab) {
+          tab.style.display = "none";
+        });
+
+        const tabButtons = shadowRoot.querySelectorAll(".tab-btn");
+        tabButtons.forEach(function (btn) {
+          btn.classList.remove("active");
+        });
+
+        // Use querySelector com # para selecionar o elemento por ID
+        const activeTab = shadowRoot.querySelector(`#${tabId}-tab`);
+        if (activeTab) activeTab.style.display = "flex";
+
+        const activeButton = shadowRoot.querySelector(
+          `.tab-btn[data-tab="${tabId}"]`
+        );
+        if (activeButton) activeButton.classList.add("active");
+      }
+
+      // Configurar eventos das abas
+      const tabButtons = shadowRoot.querySelectorAll(".tab-btn");
+      tabButtons.forEach(function (button) {
+        button.addEventListener("click", function () {
+          const tabId = this.getAttribute("data-tab");
+          toggleTab(tabId);
+        });
+      });
+
+      // Inicializar com a primeira aba ativa
+      toggleTab("pesquisa");
 
       carregarApiKey();
       inicializarEventListeners();
@@ -542,7 +585,13 @@
 
       const titulo = document.createElement("div");
       titulo.className = "link-titulo";
-      titulo.textContent = link.titulo;
+
+      if (link.tamanho) {
+        titulo.textContent = `(${link.tamanho}) ${link.titulo}`;
+      } else {
+        titulo.textContent = link.titulo;
+      }
+
       Object.assign(titulo.style, {
         flex: "1",
         overflow: "hidden",

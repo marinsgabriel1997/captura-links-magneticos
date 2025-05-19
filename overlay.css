@@ -34,6 +34,46 @@
   margin-bottom: 15px;
 }
 
+/* Estilos para as abas */
+#tabs-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tabs {
+  display: flex;
+  border-bottom: 1px solid #ccc;
+  margin-bottom: 15px;
+}
+
+.tab-btn {
+  padding: 8px 15px;
+  background-color: #f0f0f0;
+  border: 1px solid #ccc;
+  border-bottom: none;
+  margin-right: 5px;
+  border-radius: 4px 4px 0 0;
+  cursor: pointer;
+  font-weight: normal;
+}
+
+.tab-btn.active {
+  background-color: #fff;
+  border-bottom: 1px solid white;
+  margin-bottom: -1px;
+  font-weight: bold;
+}
+
+.tab-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+
+/* Seção de API Key */
 #api-key-section {
   margin-bottom: 15px;
   display: flex;
@@ -60,6 +100,19 @@
   border-radius: 3px;
 }
 
+.api-info {
+  background-color: #f8f8f8;
+  padding: 15px;
+  border-radius: 4px;
+  border-left: 4px solid #2196f3;
+}
+
+.api-info p {
+  margin: 5px 0;
+  color: #555;
+}
+
+/* Seção de filtros e conteúdo */
 #filter-container {
   margin-bottom: 15px;
   display: flex;

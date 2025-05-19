@@ -4,80 +4,101 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Overlay de Links Magnéticos</title>
+    <link rel="stylesheet" href="overlay.css" />
   </head>
   <body>
     <div id="overlay-extension">
       <button id="close-button">X</button>
       <div id="header">0 links magnéticos encontrados</div>
 
-      <div id="api-key-section">
-        <label id="api-key-label">Real-Debrid API Key: </label>
-        <input
-          type="password"
-          id="rd-api-key"
-          placeholder="Cole sua API Key do Real-Debrid aqui"
-        />
-        <button id="save-api-key-btn">Salvar</button>
-      </div>
-
-      <div id="filter-container">
-        <label id="filter-label">Filtrar: </label>
-        <input
-          type="text"
-          id="filter-input"
-          placeholder="Digite para filtrar por título..."
-        />
-      </div>
-
-      <div id="pre-filter-container">
-        <div class="filtro-grupo">
-          <label>Resolução:</label>
-          <select id="filtro-resolucao" data-filtro-grupo="resolucao">
-            <option value="">Todos</option>
-            <option value="720p">720p</option>
-            <option value="1080p">1080p</option>
-            <option value="2160p">2160p</option>
-            <option value="UHD">UHD</option>
-          </select>
+      <div id="tabs-container">
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="pesquisa">Pesquisa</button>
+          <button class="tab-btn" data-tab="config">Configuração</button>
         </div>
 
-        <div class="filtro-grupo">
-          <label>Codec:</label>
-          <select id="filtro-codec" data-filtro-grupo="codec">
-            <option value="">Todos</option>
-            <option value="x264">x264</option>
-            <option value="x265">x265</option>
-            <option value="HEVC">HEVC</option>
-            <option value="XviD">XviD</option>
-            <option value="REMUX">REMUX</option>
-          </select>
+        <div class="tab-content" id="pesquisa-tab">
+          <div id="filter-container">
+            <label id="filter-label">Filtrar: </label>
+            <input
+              type="text"
+              id="filter-input"
+              placeholder="Digite para filtrar por título..."
+            />
+          </div>
+
+          <div id="pre-filter-container">
+            <div class="filtro-grupo">
+              <label>Resolução:</label>
+              <select id="filtro-resolucao" data-filtro-grupo="resolucao">
+                <option value="">Todos</option>
+                <option value="720p">720p</option>
+                <option value="1080p">1080p</option>
+                <option value="2160p">2160p</option>
+                <option value="UHD">UHD</option>
+              </select>
+            </div>
+
+            <div class="filtro-grupo">
+              <label>Codec:</label>
+              <select id="filtro-codec" data-filtro-grupo="codec">
+                <option value="">Todos</option>
+                <option value="x264">x264</option>
+                <option value="x265">x265</option>
+                <option value="HEVC">HEVC</option>
+                <option value="XviD">XviD</option>
+                <option value="REMUX">REMUX</option>
+              </select>
+            </div>
+
+            <div class="filtro-grupo">
+              <label>Tipo:</label>
+              <select id="filtro-tipo" data-filtro-grupo="tipo">
+                <option value="">Todos</option>
+                <option value="BluRay">BluRay</option>
+                <option value="BRRip">BRRip</option>
+                <option value="WEB-DL">WEB-DL</option>
+                <option value="WEBRip">WEBRip</option>
+                <option value="DVDRip">DVDRip</option>
+              </select>
+            </div>
+
+            <button id="limpar-filtros">Limpar Filtros</button>
+          </div>
+
+          <div id="selection-container">
+            <button id="select-all-btn">Selecionar Todos</button>
+            <button id="deselect-all-btn">Deselecionar Todos</button>
+          </div>
+
+          <div id="lista-links"></div>
+
+          <div class="buttons">
+            <button id="copy-selected-btn">Copiar Links Selecionados</button>
+            <button id="debrid-selected-btn">Debrid Links Selecionados</button>
+          </div>
         </div>
 
-        <div class="filtro-grupo">
-          <label>Tipo:</label>
-          <select id="filtro-tipo" data-filtro-grupo="tipo">
-            <option value="">Todos</option>
-            <option value="BluRay">BluRay</option>
-            <option value="BRRip">BRRip</option>
-            <option value="WEB-DL">WEB-DL</option>
-            <option value="WEBRip">WEBRip</option>
-            <option value="DVDRip">DVDRip</option>
-          </select>
+        <div class="tab-content" id="config-tab" style="display: none">
+          <div id="api-key-section">
+            <label id="api-key-label">Real-Debrid API Key: </label>
+            <input
+              type="password"
+              id="rd-api-key"
+              placeholder="Cole sua API Key do Real-Debrid aqui"
+            />
+            <button id="save-api-key-btn">Salvar</button>
+          </div>
+          <div class="api-info">
+            <p>
+              Configure aqui sua API Key do Real-Debrid para usar o recurso de
+              debrid.
+            </p>
+            <p>
+              A API Key é salva apenas no seu navegador e não é compartilhada.
+            </p>
+          </div>
         </div>
-
-        <button id="limpar-filtros">Limpar Filtros</button>
-      </div>
-
-      <div id="selection-container">
-        <button id="select-all-btn">Selecionar Todos</button>
-        <button id="deselect-all-btn">Deselecionar Todos</button>
-      </div>
-
-      <div id="lista-links"></div>
-
-      <div class="buttons">
-        <button id="copy-selected-btn">Copiar Links Selecionados</button>
-        <button id="debrid-selected-btn">Debrid Links Selecionados</button>
       </div>
     </div>
   </body>
