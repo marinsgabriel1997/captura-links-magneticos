@@ -374,43 +374,28 @@
         apiKey: apiKey,
       },
       (response) => {
-        // Restaurar o botão
-        button.textContent = "Download";
-        button.disabled = false;
-        button.style.backgroundColor = "#4CAF50";
-
         if (response?.success) {
           const downloadData = response.data;
 
-          // Criar um contêiner para mostrar o link de download
-          const downloadContainer = document.createElement("div");
-          downloadContainer.style.marginTop = "5px";
-          downloadContainer.style.padding = "10px";
-          downloadContainer.style.backgroundColor = "#f5f5f5";
-          downloadContainer.style.borderRadius = "3px";
+          // Abrir o link de download diretamente em uma nova aba
+          window.open(downloadData.download, "_blank");
 
-          downloadContainer.innerHTML = `
-          <div style="font-weight: bold; margin-bottom: 5px;">Download Disponível:</div>
-          <div style="display: flex; align-items: center;">
-            <a href="${
-              downloadData.download
-            }" style="color: #2196F3; flex: 1; overflow: hidden; text-overflow: ellipsis;" target="_blank">
-              ${downloadData.filename} (${(
-            downloadData.filesize /
-            (1024 * 1024)
-          ).toFixed(2)} MB)
-            </a>
-            <button onclick="window.open('${downloadData.download}', '_blank')" 
-                    style="margin-left: 10px; background-color: #4CAF50; color: white; border: none; border-radius: 3px; padding: 5px 10px; cursor: pointer;">
-              Baixar Agora
-            </button>
-          </div>
-        `;
+          // Atualizar o botão para indicar sucesso
+          button.textContent = "Baixado!";
+          button.style.backgroundColor = "#4CAF50";
 
-          // Buscar o elemento pai do botão para adicionar o contêiner
-          const buttonParent = button.parentElement;
-          buttonParent.parentElement.appendChild(downloadContainer);
+          // Opcional: Após alguns segundos, restaurar o botão para seu estado original
+          setTimeout(() => {
+            button.textContent = "Download";
+            button.disabled = false;
+            button.style.backgroundColor = "#4CAF50";
+          }, 3000);
         } else {
+          // Restaurar o botão em caso de erro
+          button.textContent = "Download";
+          button.disabled = false;
+          button.style.backgroundColor = "#4CAF50";
+
           alert(
             `Erro ao processar o link: ${
               response?.error || "Erro desconhecido"
