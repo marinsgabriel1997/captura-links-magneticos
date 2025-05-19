@@ -187,3 +187,42 @@
 #debrid-selected-btn {
   background-color: #ff9800;
 }
+
+#pre-filter-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin-bottom: 15px;
+  padding: 10px;
+  background-color: #f5f5f5;
+  border-radius: 5px;
+}
+
+.filtro-grupo {
+  display: flex;
+  flex-direction: column;
+}
+
+.filtro-grupo label {
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+.filtro-grupo select {
+  min-width: 150px;
+  padding: 5px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+}
+
+#limpar-filtros {
+  padding: 5px 10px;
+  background-color: #f0f0f0;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+#limpar-filtros:hover {
+  background-color: #e0e0e0;
+}

@@ -152,8 +152,14 @@
         condicao: () =>
           !window.location.href.includes("https://real-debrid.com/torrents"),
       },
+      // Adicionar estes novos eventos
+      "filtro-resolucao": { evento: "change", handler: atualizarLista },
+      "filtro-codec": { evento: "change", handler: atualizarLista },
+      "filtro-tipo": { evento: "change", handler: atualizarLista },
+      "limpar-filtros": { evento: "click", handler: limparFiltros },
     };
 
+    // O resto continua igual
     Object.entries(eventos).forEach(([id, { evento, handler, condicao }]) => {
       const elemento = getElement(id);
       if (!elemento) return;
@@ -329,6 +335,19 @@
     setTimeout(() => (btn.style.backgroundColor = ""), 100);
   }
 
+  function limparFiltros() {
+    const filtroResolucao = getElement("filtro-resolucao");
+    const filtroCodec = getElement("filtro-codec");
+    const filtroTipo = getElement("filtro-tipo");
+
+    if (filtroResolucao) filtroResolucao.value = "";
+    if (filtroCodec) filtroCodec.value = "";
+    if (filtroTipo) filtroTipo.value = "";
+
+    pulsoBtn("limpar-filtros");
+    atualizarLista();
+  }
+
   function copiarSelecionados() {
     const copyBtn = getElement("copy-selected-btn");
     if (!copyBtn) return;
@@ -450,6 +469,9 @@
     const filterInput = getElement("filter-input");
     const listaLinks = getElement("lista-links");
     const header = getElement("header");
+    const filtroResolucao = getElement("filtro-resolucao");
+    const filtroCodec = getElement("filtro-codec");
+    const filtroTipo = getElement("filtro-tipo");
     const isRealDebridTorrentsPage = window.location.href.includes(
       "https://real-debrid.com/torrents"
     );
@@ -463,14 +485,35 @@
     listaLinks.innerHTML = "";
     let linksVisiveis = 0;
 
+    // Valores dos filtros avançados
+    const resolucao = filtroResolucao
+      ? filtroResolucao.value.toLowerCase()
+      : "";
+    const codec = filtroCodec ? filtroCodec.value.toLowerCase() : "";
+    const tipo = filtroTipo ? filtroTipo.value.toLowerCase() : "";
+
     linksMagneticos.forEach((link, index) => {
       const tituloLowerCase = link.titulo.toLowerCase();
+
       // Verifica se TODAS as palavras do filtro estão presentes no título
       const correspondeAoFiltro =
         filtrosPalavras.length === 0 ||
         filtrosPalavras.every((palavra) => tituloLowerCase.includes(palavra));
 
-      if (!correspondeAoFiltro) return;
+      // Verificar filtros avançados
+      const correspondeResolucao =
+        resolucao === "" || tituloLowerCase.includes(resolucao);
+      const correspondeCodec = codec === "" || tituloLowerCase.includes(codec);
+      const correspondeTipo = tipo === "" || tituloLowerCase.includes(tipo);
+
+      // Só exibe se corresponder a TODOS os filtros
+      if (
+        !correspondeAoFiltro ||
+        !correspondeResolucao ||
+        !correspondeCodec ||
+        !correspondeTipo
+      )
+        return;
 
       linksVisiveis++;
 

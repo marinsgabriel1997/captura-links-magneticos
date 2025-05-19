@@ -29,6 +29,45 @@
         />
       </div>
 
+      <div id="pre-filter-container">
+        <div class="filtro-grupo">
+          <label>Resolução:</label>
+          <select id="filtro-resolucao" data-filtro-grupo="resolucao">
+            <option value="">Todos</option>
+            <option value="720p">720p</option>
+            <option value="1080p">1080p</option>
+            <option value="2160p">2160p</option>
+            <option value="UHD">UHD</option>
+          </select>
+        </div>
+
+        <div class="filtro-grupo">
+          <label>Codec:</label>
+          <select id="filtro-codec" data-filtro-grupo="codec">
+            <option value="">Todos</option>
+            <option value="x264">x264</option>
+            <option value="x265">x265</option>
+            <option value="HEVC">HEVC</option>
+            <option value="XviD">XviD</option>
+            <option value="REMUX">REMUX</option>
+          </select>
+        </div>
+
+        <div class="filtro-grupo">
+          <label>Tipo:</label>
+          <select id="filtro-tipo" data-filtro-grupo="tipo">
+            <option value="">Todos</option>
+            <option value="BluRay">BluRay</option>
+            <option value="BRRip">BRRip</option>
+            <option value="WEB-DL">WEB-DL</option>
+            <option value="WEBRip">WEBRip</option>
+            <option value="DVDRip">DVDRip</option>
+          </select>
+        </div>
+
+        <button id="limpar-filtros">Limpar Filtros</button>
+      </div>
+
       <div id="selection-container">
         <button id="select-all-btn">Selecionar Todos</button>
         <button id="deselect-all-btn">Deselecionar Todos</button>
