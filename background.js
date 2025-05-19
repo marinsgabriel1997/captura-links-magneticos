@@ -35,8 +35,44 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         sendResponse({ success: false, error: error.message });
       });
     return true; // Indica que a resposta será assíncrona
+  } else if (request.action === "unrestrictLink") {
+    unrestrictLink(request.link, request.apiKey)
+      .then((resultado) => {
+        sendResponse({ success: true, data: resultado });
+      })
+      .catch((error) => {
+        sendResponse({ success: false, error: error.message });
+      });
+    return true; // Indica que a resposta será assíncrona
   }
 });
+
+async function unrestrictLink(link, apiKey) {
+  const url = "https://api.real-debrid.com/rest/1.0/unrestrict/link";
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: `link=${encodeURIComponent(link)}`,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Erro ${response.status}: ${errorText}`);
+    }
+
+    const data = await response.json();
+    console.log("Link unrestricted:", data);
+    return data;
+  } catch (error) {
+    console.error("Erro ao fazer unrestrict do link:", error);
+    throw error;
+  }
+}
 
 // Função simples para criptografar a API key (não segura, apenas para exemplo)
 function encryptApiKey(apiKey) {

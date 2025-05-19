@@ -290,20 +290,44 @@
       const data = response.data;
 
       if (data.links?.length > 0) {
-        const linksHtml = `<ul style='margin-top: 5px; padding-left: 20px;'>
-          ${data.links
-            .map(
-              (link) =>
-                `<li><a href="${link}" target="_blank" style="color: #2196F3; text-decoration: underline;">${link}</a></li>`
-            )
-            .join("")}
-        </ul>`;
+        const linksContainer = document.createElement("div");
+        linksContainer.style.marginTop = "5px";
+
+        // Para cada link, criar um container com link e botão de download
+        const linksHtml = data.links
+          .map((link) => {
+            return `
+          <div style="display: flex; margin-bottom: 5px; align-items: center;">
+            <a href="${link}" target="_blank" style="color: #2196F3; text-decoration: underline; flex: 1; overflow: hidden; text-overflow: ellipsis;">${link}</a>
+            <button class="download-btn" data-link="${link}" style="margin-left: 10px; background-color: #4CAF50; color: white; border: none; border-radius: 3px; padding: 2px 5px; cursor: pointer;">Download</button>
+          </div>
+        `;
+          })
+          .join("");
+
+        linksContainer.innerHTML = linksHtml;
 
         atualizarStatusItem(
           index,
-          `<strong>Sucesso!</strong> Arquivo: ${data.fileName} (${data.fileSize})<br>Links disponíveis:${linksHtml}`,
+          `<strong>Sucesso!</strong> Arquivo: ${data.fileName} (${data.fileSize})<br>Links disponíveis:`,
           "success"
         );
+
+        // Anexar o container de links ao status
+        const statusElement = shadowRoot.querySelector(
+          `.link-item[data-index="${index}"] .item-status`
+        );
+        if (statusElement) {
+          statusElement.appendChild(linksContainer);
+
+          // Adicionar event listeners para os botões de download
+          statusElement.querySelectorAll(".download-btn").forEach((btn) => {
+            btn.addEventListener("click", (e) => {
+              const linkUrl = e.target.getAttribute("data-link");
+              unrestrictLinkClick(linkUrl, index, e.target);
+            });
+          });
+        }
       } else if (data.status === "magnet_conversion") {
         atualizarStatusItem(
           index,
@@ -324,6 +348,77 @@
         response?.error || "Erro desconhecido na comunicação com o servidor";
       atualizarStatusItem(index, `Erro: ${errorMsg}`, "error");
     }
+  }
+
+  function unrestrictLinkClick(link, index, button) {
+    const apiKeyInput = getElement("rd-api-key");
+    if (!apiKeyInput) return;
+
+    const apiKey = apiKeyInput.value.trim();
+    if (!apiKey) {
+      alert(
+        "API Key não definida! Por favor, insira sua API Key do Real-Debrid."
+      );
+      return;
+    }
+
+    // Mudar aparência do botão durante o processamento
+    button.textContent = "Processando...";
+    button.disabled = true;
+    button.style.backgroundColor = "#e68a00";
+
+    chrome.runtime.sendMessage(
+      {
+        action: "unrestrictLink",
+        link: link,
+        apiKey: apiKey,
+      },
+      (response) => {
+        // Restaurar o botão
+        button.textContent = "Download";
+        button.disabled = false;
+        button.style.backgroundColor = "#4CAF50";
+
+        if (response?.success) {
+          const downloadData = response.data;
+
+          // Criar um contêiner para mostrar o link de download
+          const downloadContainer = document.createElement("div");
+          downloadContainer.style.marginTop = "5px";
+          downloadContainer.style.padding = "10px";
+          downloadContainer.style.backgroundColor = "#f5f5f5";
+          downloadContainer.style.borderRadius = "3px";
+
+          downloadContainer.innerHTML = `
+          <div style="font-weight: bold; margin-bottom: 5px;">Download Disponível:</div>
+          <div style="display: flex; align-items: center;">
+            <a href="${
+              downloadData.download
+            }" style="color: #2196F3; flex: 1; overflow: hidden; text-overflow: ellipsis;" target="_blank">
+              ${downloadData.filename} (${(
+            downloadData.filesize /
+            (1024 * 1024)
+          ).toFixed(2)} MB)
+            </a>
+            <button onclick="window.open('${downloadData.download}', '_blank')" 
+                    style="margin-left: 10px; background-color: #4CAF50; color: white; border: none; border-radius: 3px; padding: 5px 10px; cursor: pointer;">
+              Baixar Agora
+            </button>
+          </div>
+        `;
+
+          // Buscar o elemento pai do botão para adicionar o contêiner
+          const buttonParent = button.parentElement;
+          buttonParent.parentElement.appendChild(downloadContainer);
+        } else {
+          alert(
+            `Erro ao processar o link: ${
+              response?.error || "Erro desconhecido"
+            }`
+          );
+        }
+      }
+    );
   }
 
   function salvarApiKey() {
