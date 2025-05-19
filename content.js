@@ -1,4 +1,4 @@
-(function () {
+(() => {
   const existingContainer = document.getElementById("extension-container");
   if (existingContainer) {
     existingContainer.remove();
@@ -9,186 +9,180 @@
   const linksMagneticos = extrairLinksMagneticos();
 
   function extrairLinksMagneticos() {
-    const linksInfo = [];
     const isRealDebridTorrentsPage = window.location.href.includes(
       "https://real-debrid.com/torrents"
     );
 
-    // Caso específico para a página de torrents do Real-Debrid
     if (isRealDebridTorrentsPage) {
-      const elementos = document.querySelectorAll("textarea[name='links']");
+      return [...document.querySelectorAll("textarea[name='links']")]
+        .filter((el) => el.value?.trim())
+        .map((el) => ({
+          url: el.value.trim(),
+          titulo: `Link RD: ${(el.id || "").replace("links_", "")}`,
+          status: null,
+        }));
+    }
 
-      elementos.forEach((elemento) => {
-        if (elemento.value && elemento.value.trim()) {
-          const id = elemento.id || "";
-          linksInfo.push({
-            url: elemento.value.trim(),
-            titulo: `Link RD: ${id.replace("links_", "")}`,
-            status: null,
-          });
-        }
-      });
-    } else {
-      // Comportamento original para outros sites
-      const elementos = document.querySelectorAll("a[href]");
+    // Verificar se existem elementos com o novo seletor
+    const checkboxInputs = document.querySelectorAll(
+      "input.CheckInput-checkbox-WEQ3S"
+    );
 
-      elementos.forEach((elemento) => {
-        const href = elemento.getAttribute("href");
-        if (href && href.startsWith("magnet:")) {
+    if (checkboxInputs.length > 0) {
+      return [...checkboxInputs]
+        .filter((el) => el.getAttribute("name")?.startsWith("magnet:"))
+        .map((el) => {
+          const href = el.getAttribute("name");
           let titulo = "";
           const dnMatch = href.match(/dn=([^&]+)/);
 
-          if (dnMatch && dnMatch[1]) {
+          if (dnMatch?.[1]) {
             titulo = decodeURIComponent(dnMatch[1]).replace(/\+/g, " ");
           } else {
-            titulo = elemento.textContent.trim();
-
-            if (titulo.length < 5) {
-              const heading = elemento
-                .closest("div")
-                .querySelector("h1, h2, h3, h4, h5");
-              if (heading) {
-                titulo = heading.textContent.trim();
-              }
-            }
+            // Tentar encontrar título em elementos próximos
+            const parentElement = el.closest("div");
+            const possibleTitle = parentElement?.querySelector(
+              "h1, h2, h3, h4, h5, .title, .name"
+            );
+            if (possibleTitle) titulo = possibleTitle.textContent.trim();
           }
 
-          linksInfo.push({
+          return {
             url: href,
             titulo: titulo || "Link sem título",
             status: null,
-          });
-        }
-      });
+          };
+        });
     }
 
-    return linksInfo;
+    // Caso não encontre pelo novo seletor, usa o método original
+    return [...document.querySelectorAll("a[href]")]
+      .filter((el) => el.getAttribute("href")?.startsWith("magnet:"))
+      .map((el) => {
+        const href = el.getAttribute("href");
+        let titulo = "";
+        const dnMatch = href.match(/dn=([^&]+)/);
+
+        if (dnMatch?.[1]) {
+          titulo = decodeURIComponent(dnMatch[1]).replace(/\+/g, " ");
+        } else {
+          titulo = el.textContent.trim();
+
+          if (titulo.length < 5) {
+            const heading = el
+              .closest("div")
+              ?.querySelector("h1, h2, h3, h4, h5");
+            if (heading) titulo = heading.textContent.trim();
+          }
+        }
+
+        return {
+          url: href,
+          titulo: titulo || "Link sem título",
+          status: null,
+        };
+      });
   }
 
-  function getElement(id) {
-    return shadowRoot.getElementById(id);
-  }
+  const getElement = (id) => shadowRoot.getElementById(id);
 
-  function inicializarExtensao() {
+  async function inicializarExtensao() {
     const container = document.createElement("div");
     container.id = "extension-container";
-    container.style.position = "fixed";
-    container.style.top = "0";
-    container.style.left = "0";
-    container.style.width = "100%";
-    container.style.height = "100%";
-    container.style.zIndex = "2147483647";
-    container.style.pointerEvents = "none";
+    Object.assign(container.style, {
+      position: "fixed",
+      top: "0",
+      left: "0",
+      width: "100%",
+      height: "100%",
+      zIndex: "2147483647",
+      pointerEvents: "none",
+    });
 
     shadowRoot = container.attachShadow({ mode: "closed" });
 
-    Promise.all([
-      fetch(chrome.runtime.getURL("overlay.html")).then((r) => r.text()),
-      fetch(chrome.runtime.getURL("overlay.css")).then((r) => r.text()),
-    ])
-      .then(([html, css]) => {
-        const style = document.createElement("style");
-        style.textContent = css;
-        shadowRoot.appendChild(style);
+    try {
+      const [html, css] = await Promise.all([
+        fetch(chrome.runtime.getURL("overlay.html")).then((r) => r.text()),
+        fetch(chrome.runtime.getURL("overlay.css")).then((r) => r.text()),
+      ]);
 
-        const overlayDiv = document.createElement("div");
-        overlayDiv.innerHTML = html;
+      const style = document.createElement("style");
+      style.textContent = css;
+      shadowRoot.appendChild(style);
 
-        while (overlayDiv.firstChild) {
-          shadowRoot.appendChild(overlayDiv.firstChild);
-        }
+      const overlayDiv = document.createElement("div");
+      overlayDiv.innerHTML = html;
 
-        document.body.appendChild(container);
+      while (overlayDiv.firstChild) {
+        shadowRoot.appendChild(overlayDiv.firstChild);
+      }
 
-        const overlayElement = getElement("overlay-extension");
-        if (overlayElement) {
-          overlayElement.style.pointerEvents = "auto";
-        }
+      document.body.appendChild(container);
 
-        const header = getElement("header");
-        if (header) {
-          header.textContent = `${linksMagneticos.length} links magnéticos encontrados`;
-        }
+      const overlayElement = getElement("overlay-extension");
+      if (overlayElement) overlayElement.style.pointerEvents = "auto";
 
-        carregarApiKey();
-        inicializarEventListeners();
-        atualizarLista();
-      })
-      .catch((error) => {
-        console.error("Erro ao carregar recursos:", error);
-      });
+      const header = getElement("header");
+      if (header)
+        header.textContent = `${linksMagneticos.length} links magnéticos encontrados`;
+
+      carregarApiKey();
+      inicializarEventListeners();
+      atualizarLista();
+    } catch (error) {
+      console.error("Erro ao carregar recursos:", error);
+    }
   }
 
   function inicializarEventListeners() {
-    const closeButton = getElement("close-button");
-    if (closeButton) {
-      closeButton.addEventListener("click", () => {
-        const container = document.getElementById("extension-container");
-        if (container) {
-          container.remove();
+    const eventos = {
+      "close-button": {
+        evento: "click",
+        handler: () => document.getElementById("extension-container")?.remove(),
+      },
+      "save-api-key-btn": { evento: "click", handler: salvarApiKey },
+      "filter-input": { evento: "input", handler: atualizarLista },
+      "select-all-btn": { evento: "click", handler: selecionarTodos },
+      "deselect-all-btn": { evento: "click", handler: deselecionarTodos },
+      "copy-selected-btn": { evento: "click", handler: copiarSelecionados },
+      "debrid-selected-btn": {
+        evento: "click",
+        handler: processarSelecionados,
+        condicao: () =>
+          !window.location.href.includes("https://real-debrid.com/torrents"),
+      },
+    };
+
+    Object.entries(eventos).forEach(([id, { evento, handler, condicao }]) => {
+      const elemento = getElement(id);
+      if (!elemento) return;
+
+      if (condicao !== undefined) {
+        if (!condicao()) {
+          elemento.style.display = "none";
+          return;
         }
-      });
-    }
-
-    const saveApiButton = getElement("save-api-key-btn");
-    if (saveApiButton) {
-      saveApiButton.addEventListener("click", salvarApiKey);
-    }
-
-    const filterInput = getElement("filter-input");
-    if (filterInput) {
-      filterInput.addEventListener("input", atualizarLista);
-    }
-
-    const selectAllButton = getElement("select-all-btn");
-    if (selectAllButton) {
-      selectAllButton.addEventListener("click", selecionarTodos);
-    }
-
-    const deselectAllButton = getElement("deselect-all-btn");
-    if (deselectAllButton) {
-      deselectAllButton.addEventListener("click", deselecionarTodos);
-    }
-
-    const copySelectedButton = getElement("copy-selected-btn");
-    if (copySelectedButton) {
-      copySelectedButton.addEventListener("click", copiarSelecionados);
-    }
-
-    const debridSelectedButton = getElement("debrid-selected-btn");
-    if (debridSelectedButton) {
-      if (window.location.href.includes("https://real-debrid.com/torrents")) {
-        debridSelectedButton.style.display = "none"; // Oculta o botão
-      } else {
-        debridSelectedButton.addEventListener("click", processarSelecionados);
       }
-    }
+
+      elemento.addEventListener(evento, handler);
+    });
   }
 
   function processarSelecionados() {
     const apiKeyInput = getElement("rd-api-key");
-    if (!apiKeyInput) {
-      console.error("Campo de API Key não encontrado");
-      return;
-    }
+    if (!apiKeyInput) return console.error("Campo de API Key não encontrado");
 
     const apiKey = apiKeyInput.value.trim();
-
-    if (!apiKey) {
-      alert(
+    if (!apiKey)
+      return alert(
         "API Key não definida! Por favor, insira sua API Key do Real-Debrid."
       );
-      return;
-    }
 
-    const checkboxes = Array.from(
-      shadowRoot.querySelectorAll(".link-item input[type=checkbox]:checked")
-    );
-
-    if (checkboxes.length === 0) {
-      alert("Nenhum link selecionado!");
-      return;
-    }
+    const checkboxes = [
+      ...shadowRoot.querySelectorAll(".link-item input[type=checkbox]:checked"),
+    ];
+    if (checkboxes.length === 0) return alert("Nenhum link selecionado!");
 
     const debridSelectedBtn = getElement("debrid-selected-btn");
     if (debridSelectedBtn) {
@@ -216,7 +210,6 @@
     }
 
     const index = parseInt(checkboxes[indiceAtual].value);
-
     atualizarStatusItem(
       index,
       `Em processamento (${indiceAtual + 1}/${checkboxes.length})...`,
@@ -230,44 +223,7 @@
         apiKey,
       },
       (response) => {
-        if (response && response.success) {
-          const data = response.data;
-
-          if (data.links && data.links.length > 0) {
-            let linksHtml = "<ul style='margin-top: 5px; padding-left: 20px;'>";
-            data.links.forEach((link) => {
-              linksHtml += `<li><a href="${link}" target="_blank" style="color: #2196F3; text-decoration: underline;">${link}</a></li>`;
-            });
-            linksHtml += "</ul>";
-
-            atualizarStatusItem(
-              index,
-              `<strong>Sucesso!</strong> Arquivo: ${data.fileName} (${data.fileSize})<br>Links disponíveis:${linksHtml}`,
-              "success"
-            );
-          } else if (data.status === "magnet_conversion") {
-            atualizarStatusItem(
-              index,
-              `O magnet está sendo convertido. ID do torrent: ${data.torrentId}. Tente novamente em alguns minutos.`,
-              "info"
-            );
-          } else {
-            atualizarStatusItem(
-              index,
-              `Link enviado para o Real-Debrid. Status: ${
-                data.status
-              }, Progresso: ${Math.round(data.progress * 100)}%`,
-              "info"
-            );
-          }
-        } else {
-          const errorMsg =
-            response && response.error
-              ? response.error
-              : "Erro desconhecido na comunicação com o servidor";
-          atualizarStatusItem(index, `Erro: ${errorMsg}`, "error");
-        }
-
+        processarRespostaDebrid(response, index);
         setTimeout(() => {
           processarFilaSequencial(
             checkboxes,
@@ -280,34 +236,66 @@
     );
   }
 
+  function processarRespostaDebrid(response, index) {
+    if (response?.success) {
+      const data = response.data;
+
+      if (data.links?.length > 0) {
+        const linksHtml = `<ul style='margin-top: 5px; padding-left: 20px;'>
+          ${data.links
+            .map(
+              (link) =>
+                `<li><a href="${link}" target="_blank" style="color: #2196F3; text-decoration: underline;">${link}</a></li>`
+            )
+            .join("")}
+        </ul>`;
+
+        atualizarStatusItem(
+          index,
+          `<strong>Sucesso!</strong> Arquivo: ${data.fileName} (${data.fileSize})<br>Links disponíveis:${linksHtml}`,
+          "success"
+        );
+      } else if (data.status === "magnet_conversion") {
+        atualizarStatusItem(
+          index,
+          `O magnet está sendo convertido. ID do torrent: ${data.torrentId}. Tente novamente em alguns minutos.`,
+          "info"
+        );
+      } else {
+        atualizarStatusItem(
+          index,
+          `Link enviado para o Real-Debrid. Status: ${
+            data.status
+          }, Progresso: ${Math.round(data.progress * 100)}%`,
+          "info"
+        );
+      }
+    } else {
+      const errorMsg =
+        response?.error || "Erro desconhecido na comunicação com o servidor";
+      atualizarStatusItem(index, `Erro: ${errorMsg}`, "error");
+    }
+  }
+
   function salvarApiKey() {
     const saveBtn = getElement("save-api-key-btn");
     const apiKeyInput = getElement("rd-api-key");
 
-    if (!saveBtn || !apiKeyInput) {
-      console.error(
-        "Elementos necessários não encontrados para salvar API Key"
-      );
-      return;
-    }
+    if (!saveBtn || !apiKeyInput) return;
 
     const apiKey = apiKeyInput.value.trim();
+    if (!apiKey) return;
 
-    if (apiKey) {
-      chrome.runtime.sendMessage(
-        { action: "saveApiKey", apiKey },
-        (response) => {
-          if (response && response.success) {
-            saveBtn.textContent = "Salvo!";
-            saveBtn.style.backgroundColor = "#4CAF50";
-            setTimeout(() => {
-              saveBtn.textContent = "Salvar";
-              saveBtn.style.backgroundColor = "#2196F3";
-            }, 1500);
-          }
-        }
-      );
-    }
+    chrome.runtime.sendMessage({ action: "saveApiKey", apiKey }, (response) => {
+      if (response?.success) {
+        saveBtn.textContent = "Salvo!";
+        saveBtn.style.backgroundColor = "#4CAF50";
+        setTimeout(() => {
+          saveBtn.textContent = "Salvar";
+          saveBtn.style.backgroundColor = "#2196F3";
+        }, 1500);
+      }
+    });
   }
 
   function carregarApiKey() {
@@ -315,109 +303,75 @@
     if (!apiKeyInput) return;
 
     chrome.runtime.sendMessage({ action: "getApiKey" }, (response) => {
-      if (response && response.apiKey) {
-        apiKeyInput.value = response.apiKey;
-      }
+      if (response?.apiKey) apiKeyInput.value = response.apiKey;
     });
   }
 
   function selecionarTodos() {
     shadowRoot
       .querySelectorAll(".link-item input[type=checkbox]")
-      .forEach((cb) => {
-        cb.checked = true;
-      });
-
-    const selectAllBtn = getElement("select-all-btn");
-    if (selectAllBtn) {
-      selectAllBtn.style.backgroundColor = "#ddd";
-      setTimeout(() => {
-        selectAllBtn.style.backgroundColor = "";
-      }, 100);
-    }
+      .forEach((cb) => (cb.checked = true));
+    pulsoBtn("select-all-btn");
   }
 
   function deselecionarTodos() {
     shadowRoot
       .querySelectorAll(".link-item input[type=checkbox]")
-      .forEach((cb) => {
-        cb.checked = false;
-      });
+      .forEach((cb) => (cb.checked = false));
+    pulsoBtn("deselect-all-btn");
+  }
 
-    const deselectAllBtn = getElement("deselect-all-btn");
-    if (deselectAllBtn) {
-      deselectAllBtn.style.backgroundColor = "#ddd";
-      setTimeout(() => {
-        deselectAllBtn.style.backgroundColor = "";
-      }, 100);
-    }
+  function pulsoBtn(id) {
+    const btn = getElement(id);
+    if (!btn) return;
+
+    btn.style.backgroundColor = "#ddd";
+    setTimeout(() => (btn.style.backgroundColor = ""), 100);
   }
 
   function copiarSelecionados() {
     const copyBtn = getElement("copy-selected-btn");
-    if (!copyBtn) {
-      console.error("Botão 'Copiar Selecionados' não encontrado");
-      return;
-    }
+    if (!copyBtn) return;
 
-    const selecionados = [];
-
-    shadowRoot
-      .querySelectorAll(".link-item input[type=checkbox]:checked")
-      .forEach((cb) => {
-        selecionados.push(linksMagneticos[parseInt(cb.value)].url);
-      });
+    const selecionados = [
+      ...shadowRoot.querySelectorAll(".link-item input[type=checkbox]:checked"),
+    ].map((cb) => linksMagneticos[parseInt(cb.value)].url);
 
     if (selecionados.length > 0) {
       navigator.clipboard.writeText(selecionados.join("\n"));
       copyBtn.style.backgroundColor = "#3e8e41";
-      setTimeout(() => {
-        copyBtn.style.backgroundColor = "#4CAF50";
-      }, 100);
     } else {
       copyBtn.style.backgroundColor = "#ff6666";
-      setTimeout(() => {
-        copyBtn.style.backgroundColor = "#4CAF50";
-      }, 100);
     }
+
+    setTimeout(() => (copyBtn.style.backgroundColor = "#4CAF50"), 100);
   }
 
   function alternarExibicao(index, toggleBtn, titulo) {
     const item = toggleBtn.closest(".link-item");
+    const mostraLink = item.dataset.mostraLink === "true";
 
-    if (item.dataset.mostraLink === "false") {
-      titulo.textContent = linksMagneticos[index].url;
-      toggleBtn.textContent = "Mostrar Título";
-      item.dataset.mostraLink = "true";
-    } else {
-      titulo.textContent = linksMagneticos[index].titulo;
-      toggleBtn.textContent = "Mostrar Link";
-      item.dataset.mostraLink = "false";
-    }
+    titulo.textContent = mostraLink
+      ? linksMagneticos[index].titulo
+      : linksMagneticos[index].url;
+    toggleBtn.textContent = mostraLink ? "Mostrar Link" : "Mostrar Título";
+    item.dataset.mostraLink = mostraLink ? "false" : "true";
 
     toggleBtn.style.backgroundColor = "#ddd";
-    setTimeout(() => {
-      toggleBtn.style.backgroundColor = "";
-    }, 100);
+    setTimeout(() => (toggleBtn.style.backgroundColor = ""), 100);
   }
 
   function copiarLink(index, copyBtn) {
     navigator.clipboard.writeText(linksMagneticos[index].url);
     copyBtn.style.backgroundColor = "#ddd";
-    setTimeout(() => {
-      copyBtn.style.backgroundColor = "";
-    }, 100);
+    setTimeout(() => (copyBtn.style.backgroundColor = ""), 100);
   }
 
   function processarLinkDebrid(index, debridBtn) {
     const apiKeyInput = getElement("rd-api-key");
-    if (!apiKeyInput) {
-      console.error("Campo de API Key não encontrado");
-      return;
-    }
+    if (!apiKeyInput) return;
 
     const apiKey = apiKeyInput.value.trim();
-
     if (!apiKey) {
       atualizarStatusItem(index, "Erro: API Key não definida!", "error");
       return;
@@ -432,52 +386,12 @@
         magnetUrl: linksMagneticos[index].url,
         apiKey,
       },
-      (response) => {
-        if (response && response.success) {
-          const data = response.data;
-
-          if (data.links && data.links.length > 0) {
-            let linksHtml = "<ul style='margin-top: 5px; padding-left: 20px;'>";
-            data.links.forEach((link) => {
-              linksHtml += `<li><a href="${link}" target="_blank" style="color: #2196F3; text-decoration: underline;">${link}</a></li>`;
-            });
-            linksHtml += "</ul>";
-
-            atualizarStatusItem(
-              index,
-              `<strong>Sucesso!</strong> Arquivo: ${data.fileName} (${data.fileSize})<br>Links disponíveis:${linksHtml}`,
-              "success"
-            );
-          } else if (data.status === "magnet_conversion") {
-            atualizarStatusItem(
-              index,
-              `O magnet está sendo convertido. ID do torrent: ${data.torrentId}. Tente novamente em alguns minutos.`,
-              "info"
-            );
-          } else {
-            atualizarStatusItem(
-              index,
-              `Link enviado para o Real-Debrid. Status: ${
-                data.status
-              }, Progresso: ${Math.round(data.progress * 100)}%`,
-              "info"
-            );
-          }
-        } else {
-          const errorMsg =
-            response && response.error
-              ? response.error
-              : "Erro desconhecido na comunicação com o servidor";
-          atualizarStatusItem(index, `Erro: ${errorMsg}`, "error");
-        }
-      }
+      (response) => processarRespostaDebrid(response, index)
     );
 
     if (debridBtn) {
       debridBtn.style.backgroundColor = "#e68a00";
-      setTimeout(() => {
-        debridBtn.style.backgroundColor = "#ff9800";
-      }, 100);
+      setTimeout(() => (debridBtn.style.backgroundColor = "#ff9800"), 100);
     }
   }
 
@@ -489,38 +403,34 @@
     if (!statusElement) {
       statusElement = document.createElement("div");
       statusElement.className = "item-status";
-      statusElement.style.marginTop = "5px";
-      statusElement.style.padding = "5px";
-      statusElement.style.borderRadius = "3px";
-      statusElement.style.fontSize = "14px";
-      statusElement.style.width = "100%";
+      Object.assign(statusElement.style, {
+        marginTop: "5px",
+        padding: "5px",
+        borderRadius: "3px",
+        fontSize: "14px",
+        width: "100%",
+      });
       item.appendChild(statusElement);
     }
 
     statusElement.innerHTML = mensagem;
     statusElement.style.display = "block";
-    if (tipo === "success") {
-      statusElement.style.backgroundColor = "#e8f5e9";
-      statusElement.style.borderColor = "#4CAF50";
-      statusElement.style.color = "#2e7d32";
-    } else if (tipo === "error") {
-      statusElement.style.backgroundColor = "#ffebee";
-      statusElement.style.borderColor = "#f44336";
-      statusElement.style.color = "#c62828";
-    } else if (tipo === "info") {
-      statusElement.style.backgroundColor = "#e3f2fd";
-      statusElement.style.borderColor = "#2196F3";
-      statusElement.style.color = "#1565c0";
-    } else {
-      statusElement.style.backgroundColor = "#f0f0f0";
-      statusElement.style.borderColor = "#ccc";
-      statusElement.style.color = "#333";
-    }
 
-    linksMagneticos[index].status = {
-      mensagem,
-      tipo,
+    const estilos = {
+      success: { bg: "#e8f5e9", border: "#4CAF50", color: "#2e7d32" },
+      error: { bg: "#ffebee", border: "#f44336", color: "#c62828" },
+      info: { bg: "#e3f2fd", border: "#2196F3", color: "#1565c0" },
+      default: { bg: "#f0f0f0", border: "#ccc", color: "#333" },
     };
+
+    const estilo = estilos[tipo] || estilos.default;
+    Object.assign(statusElement.style, {
+      backgroundColor: estilo.bg,
+      borderColor: estilo.border,
+      color: estilo.color,
+    });
+
+    linksMagneticos[index].status = { mensagem, tipo };
   }
 
   function limparStatusItem(index) {
@@ -544,125 +454,123 @@
       "https://real-debrid.com/torrents"
     );
 
-    if (!filterInput || !listaLinks || !header) {
-      console.error(
-        "Elementos necessários não encontrados para atualizar a lista"
-      );
-      return;
-    }
+    if (!filterInput || !listaLinks || !header) return;
 
     const filtro = filterInput.value.toLowerCase();
     listaLinks.innerHTML = "";
-    let linksVisíveis = 0;
+    let linksVisiveis = 0;
 
     linksMagneticos.forEach((link, index) => {
-      if (link.titulo.toLowerCase().includes(filtro)) {
-        linksVisíveis++;
+      if (!link.titulo.toLowerCase().includes(filtro)) return;
 
-        const item = document.createElement("div");
-        item.className = "link-item";
-        item.dataset.index = index;
-        item.dataset.mostraLink = "false";
-        item.style.padding = "10px";
-        item.style.borderBottom = "1px solid #eee";
-        item.style.display = "flex";
-        item.style.flexDirection = "column";
+      linksVisiveis++;
 
-        const mainRow = document.createElement("div");
-        mainRow.style.display = "flex";
-        mainRow.style.alignItems = "center";
-        mainRow.style.width = "100%";
+      const item = document.createElement("div");
+      item.className = "link-item";
+      item.dataset.index = index;
+      item.dataset.mostraLink = "false";
+      Object.assign(item.style, {
+        padding: "10px",
+        borderBottom: "1px solid #eee",
+        display: "flex",
+        flexDirection: "column",
+      });
 
-        const checkbox = document.createElement("input");
-        checkbox.type = "checkbox";
-        checkbox.value = index;
-        checkbox.style.marginRight = "10px";
+      const mainRow = document.createElement("div");
+      Object.assign(mainRow.style, {
+        display: "flex",
+        alignItems: "center",
+        width: "100%",
+      });
 
-        const titulo = document.createElement("div");
-        titulo.className = "link-titulo";
-        titulo.textContent = link.titulo;
-        titulo.style.flex = "1";
-        titulo.style.overflow = "hidden";
-        titulo.style.textOverflow = "ellipsis";
-        titulo.style.whiteSpace = "nowrap";
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.value = index;
+      checkbox.style.marginRight = "10px";
 
-        const toggleBtn = document.createElement("button");
-        toggleBtn.textContent = "Mostrar Link";
-        toggleBtn.style.marginLeft = "10px";
-        toggleBtn.style.padding = "2px 5px";
-        toggleBtn.style.cursor = "pointer";
-        toggleBtn.addEventListener("click", () =>
-          alternarExibicao(index, toggleBtn, titulo)
-        );
+      const titulo = document.createElement("div");
+      titulo.className = "link-titulo";
+      titulo.textContent = link.titulo;
+      Object.assign(titulo.style, {
+        flex: "1",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap",
+      });
 
-        const copyBtn = document.createElement("button");
-        copyBtn.textContent = "Copiar";
-        copyBtn.style.marginLeft = "10px";
-        copyBtn.style.padding = "2px 5px";
-        copyBtn.style.cursor = "pointer";
-        copyBtn.addEventListener("click", () => copiarLink(index, copyBtn));
+      const criarBotao = (texto, onClick, estilo = {}) => {
+        const btn = document.createElement("button");
+        btn.textContent = texto;
+        Object.assign(btn.style, {
+          marginLeft: "10px",
+          padding: "2px 5px",
+          cursor: "pointer",
+          ...estilo,
+        });
+        btn.addEventListener("click", onClick);
+        return btn;
+      };
 
-        mainRow.appendChild(checkbox);
-        mainRow.appendChild(titulo);
-        mainRow.appendChild(toggleBtn);
-        mainRow.appendChild(copyBtn);
+      const toggleBtn = criarBotao("Mostrar Link", () =>
+        alternarExibicao(index, toggleBtn, titulo)
+      );
+      const copyBtn = criarBotao("Copiar", () => copiarLink(index, copyBtn));
 
-        // Adiciona o botão Debrid somente se não estivermos na página específica
-        if (!isRealDebridTorrentsPage) {
-          const debridBtn = document.createElement("button");
-          debridBtn.textContent = "Debrid";
-          debridBtn.style.marginLeft = "10px";
-          debridBtn.style.padding = "2px 5px";
-          debridBtn.style.cursor = "pointer";
-          debridBtn.style.backgroundColor = "#ff9800";
-          debridBtn.style.color = "white";
-          debridBtn.style.border = "none";
-          debridBtn.style.borderRadius = "3px";
-          debridBtn.addEventListener("click", () =>
-            processarLinkDebrid(index, debridBtn)
-          );
-          mainRow.appendChild(debridBtn);
-        }
+      mainRow.appendChild(checkbox);
+      mainRow.appendChild(titulo);
+      mainRow.appendChild(toggleBtn);
+      mainRow.appendChild(copyBtn);
 
-        item.appendChild(mainRow);
-
-        if (link.status) {
-          const statusElement = document.createElement("div");
-          statusElement.className = "item-status";
-          statusElement.style.marginTop = "5px";
-          statusElement.style.padding = "5px";
-          statusElement.style.borderRadius = "3px";
-          statusElement.style.fontSize = "14px";
-          statusElement.style.width = "100%";
-          statusElement.style.display = "block";
-          statusElement.innerHTML = link.status.mensagem;
-
-          if (link.status.tipo === "success") {
-            statusElement.style.backgroundColor = "#e8f5e9";
-            statusElement.style.borderColor = "#4CAF50";
-            statusElement.style.color = "#2e7d32";
-          } else if (link.status.tipo === "error") {
-            statusElement.style.backgroundColor = "#ffebee";
-            statusElement.style.borderColor = "#f44336";
-            statusElement.style.color = "#c62828";
-          } else if (link.status.tipo === "info") {
-            statusElement.style.backgroundColor = "#e3f2fd";
-            statusElement.style.borderColor = "#2196F3";
-            statusElement.style.color = "#1565c0";
-          } else {
-            statusElement.style.backgroundColor = "#f0f0f0";
-            statusElement.style.borderColor = "#ccc";
-            statusElement.style.color = "#333";
+      if (!isRealDebridTorrentsPage) {
+        const debridBtn = criarBotao(
+          "Debrid",
+          () => processarLinkDebrid(index, debridBtn),
+          {
+            backgroundColor: "#ff9800",
+            color: "white",
+            border: "none",
+            borderRadius: "3px",
           }
-
-          item.appendChild(statusElement);
-        }
-
-        listaLinks.appendChild(item);
+        );
+        mainRow.appendChild(debridBtn);
       }
+
+      item.appendChild(mainRow);
+
+      if (link.status) {
+        const statusElement = document.createElement("div");
+        statusElement.className = "item-status";
+        Object.assign(statusElement.style, {
+          marginTop: "5px",
+          padding: "5px",
+          borderRadius: "3px",
+          fontSize: "14px",
+          width: "100%",
+          display: "block",
+        });
+        statusElement.innerHTML = link.status.mensagem;
+
+        const estilos = {
+          success: { bg: "#e8f5e9", border: "#4CAF50", color: "#2e7d32" },
+          error: { bg: "#ffebee", border: "#f44336", color: "#c62828" },
+          info: { bg: "#e3f2fd", border: "#2196F3", color: "#1565c0" },
+          default: { bg: "#f0f0f0", border: "#ccc", color: "#333" },
+        };
+
+        const estilo = estilos[link.status.tipo] || estilos.default;
+        Object.assign(statusElement.style, {
+          backgroundColor: estilo.bg,
+          borderColor: estilo.border,
+          color: estilo.color,
+        });
+
+        item.appendChild(statusElement);
+      }
+
+      listaLinks.appendChild(item);
     });
 
-    header.textContent = `${linksVisíveis} de ${linksMagneticos.length} links ${
+    header.textContent = `${linksVisiveis} de ${linksMagneticos.length} links ${
       isRealDebridTorrentsPage ? "RD" : "magnéticos"
     } exibidos`;
   }
